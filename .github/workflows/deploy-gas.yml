@@ -11,7 +11,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
       - run: npm install -g @google/clasp
-      - run: echo "${{ secrets.CLASPRC_JSON }}" > ~/.clasprc.json
-      - run: clasp push -f
+      - name: Create clasprc.json
+        run: echo '${{ secrets.CLASPRC_JSON }}' > ~/.clasprc.json
+      - name: Push to GAS
+        run: clasp push -f
