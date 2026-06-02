@@ -1,0 +1,79 @@
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap');
+  
+  body {
+    font-family: 'Sarabun', sans-serif;
+    background-color: #f8fafc !important;
+  }
+  
+  /* สไตล์แถบเมนูด้านซ้ายมือแบบกะทัดรัด (Modern Sidebar Styling) */
+  .sidebar-btn, .user-sidebar-btn {
+    color: #94a3b8;
+    background-color: transparent;
+    border-left: 4px solid transparent;
+  }
+
+  .sidebar-btn:hover, .user-sidebar-btn:hover {
+    background-color: rgba(255, 255, 255, 0.04);
+    color: #ffffff;
+  }
+
+  .sidebar-btn.active, .user-sidebar-btn.active {
+    background-color: #f59e0b !important;
+    color: #0f172a !important;
+    border-left-color: #fbbf24 !important;
+  }
+
+  input, select {
+    outline: none;
+    border: 1px solid #cbd5e1 !important;
+  }
+
+  input:focus, select:focus {
+    border-color: #0f172a !important;
+    box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.1) !important;
+  }
+  
+  th {
+    font-size: 0.8rem !important;
+    letter-spacing: 0.03em;
+    color: #475569 !important;
+    font-weight: 700 !important;
+    background-color: #f8fafc !important;
+    padding: 12px 8px !important;
+  }
+
+  td {
+    vertical-align: middle !important;
+  }
+  
+  .animate-fadeIn {
+    animation: slideUpFade 0.25s ease-out forwards;
+  }
+
+  @keyframes slideUpFade {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* มาตรการควบคุม Responsive Table สำหรับหน้าจอมือถือและไอแพดแนวตั้ง */
+  @media (max-w: 640px) {
+    th, td {
+      font-size: 0.72rem !important;
+      padding: 8px 4px !important;
+    }
+  }
+
+  .filter-btn {
+    color: #475569;
+  }
+
+  .filter-btn.bg-slate-900 {
+    background-color: #0f172a !important;
+    color: #fbbf24 !important;
+  }
+
+  .text-xxs {
+    font-size: 0.68rem !important;
+  }
+</style>

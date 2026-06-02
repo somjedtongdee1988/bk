@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <?!= include('CSS'); ?>
+</head>
+
+<body class="bg-slate-50 text-slate-800 antialiased h-screen overflow-hidden flex flex-col">
+
+  <div id="toast-container" class="fixed top-5 right-5 z-50 space-y-2 pointer-events-none max-w-sm w-full px-4 sm:px-0">
+  </div>
+
+  <div id="logout-confirm-modal"
+    class="fixed inset-0 bg-slate-900 bg-opacity-65 z-50 flex items-center justify-center hidden p-4 animate-fadeIn">
+    <div class="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full text-center border-t-4 border-amber-500">
+      <span class="text-3xl block mb-2">📤</span>
+      <h3 class="text-base font-bold text-slate-900 mb-1">ยืนยันการออกจากระบบ</h3>
+      <p class="text-xs text-slate-500 mb-5">คุณต้องการออกจากระบบยืม-คืนพัสดุใช่หรือไม่?</p>
+      <div class="flex gap-3">
+        <button onclick="closeModal('logout-confirm-modal')" class="w-1/2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 rounded-lg text-xs transition">ยกเลิก</button>
+        <button onclick="confirmLogoutAction()" class="w-1/2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-2 rounded-lg text-xs transition">ตกลง</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="return-confirm-modal"
+    class="fixed inset-0 bg-slate-900 bg-opacity-70 z-50 flex items-center justify-center hidden p-4 animate-fadeIn">
+    <div class="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full text-center border-t-4 border-emerald-500">
+      <span class="text-3xl block mb-2">📥</span>
+      <h3 class="text-sm font-bold text-slate-900 mb-1">ยืนยันการส่งคืนพัสดุเข้าคลัง</h3>
+      <p id="return-modal-text" class="text-xs text-slate-600 mb-5 leading-relaxed">
+        คุณต้องการยืนยันส่งคืนพัสดุชิ้นนี้เข้าระบบใช่หรือไม่?</p>
+      <div class="flex gap-3">
+        <button onclick="closeModal('return-confirm-modal')" class="w-1/2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 rounded-lg text-xs transition">ยกเลิก</button>
+        <button id="return-confirm-submit-btn" class="w-1/2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-lg text-xs transition">ยืนยันส่งคืน</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="floating-cart-btn" class="fixed bottom-6 right-6 z-40 hidden">
+    <button onclick="openCartModal()" class="bg-slate-900 hover:bg-slate-800 text-amber-400 p-4 rounded-full shadow-2xl relative flex items-center justify-center transition active:scale-95 border border-slate-700">
+        <span class="text-2xl">🛒</span>
+        <span id="cart-badge-count" class="absolute -top-1 -right-1 bg-rose-600 text-white font-black text-xxs w-5 h-5 rounded-full flex items-center justify-center animate-bounce hidden">0</span>
+      </button>
+  </div>
+
+  <div id="cart-modal"
+    class="fixed inset-0 bg-slate-900 bg-opacity-60 z-50 flex items-center justify-center hidden p-4">
+    <div
+      class="bg-white rounded-xl p-6 w-full max-w-lg shadow-2xl border border-slate-100 animate-fadeIn overflow-y-auto max-h-[90vh] flex flex-col justify-between">
+      <div>
+        <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
+          <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">🛒 คลังพัสดุส่วนบุคคลที่ต้องการยืม</h3>
+          <button onclick="closeModal('cart-modal')" class="text-slate-400 hover:text-slate-600 font-bold text-sm">✕</button>
+        </div>
+
+        <div class="mb-3 flex items-center justify-between bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+          <label class="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+              <input type="checkbox" id="cart-select-all" onchange="toggleSelectAllCartItems(this)" checked class="rounded border-slate-300"> ติ๊กเลือกรายการทั้งหมด
+            </label>
+          <button onclick="clearAllCart()" class="text-rose-600 text-xs font-bold hover:underline">ล้างตะกร้า</button>
+        </div>
+
+        <div id="cart-items-list-container" class="space-y-3 mb-4 max-h-[35vh] overflow-y-auto pr-1"></div>
+
+        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200/80 space-y-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">🎯 จุดประสงค์ของการนำไปใช้งาน <span class="text-rose-500">*</span></label>
+            <input type="text" id="cartPurpose" required class="w-full p-2.5 border border-slate-200 rounded-lg text-xs bg-white transition focus:border-rose-500" placeholder="ระบุเหตุผล เช่น ใช้ทำโครงงานวิจัยวิศวกรรมคอมพิวเตอร์">
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">📅 วันที่ขอยืมพัสดุ <span class="text-rose-500">*</span></label>
+              <input type="date" id="cartBorrowDate" onchange="validateCartBorrowDays()" required class="w-full p-2 border border-slate-200 rounded-lg text-xs bg-white transition focus:border-rose-500">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">📅 วันกำหนดส่งคืนคลัง <span class="text-rose-500">*</span></label>
+              <input type="date" id="cartDueDate" onchange="validateCartBorrowDays()" required class="w-full p-2 border border-slate-200 rounded-lg text-xs bg-white transition focus:border-rose-500">
+            </div>
+          </div>
+          <div id="cart-date-warning"
+            class="text-xxs text-rose-600 font-bold hidden bg-rose-50 p-2 rounded border border-rose-200 animate-fadeIn">
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-4 border-t border-slate-100 mt-4">
+        <button
+          onclick="closeModal('cart-modal'); switchTab('user-items-tab');"
+          class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-4 py-2.5 rounded-lg transition">
+        เลือกพัสดุเพิ่ม
+        </button>
+        <button id="cartSubmitBtn" onclick="submitCartBorrow()" class="bg-slate-900 hover:bg-slate-800 text-amber-400 text-xs font-bold px-5 py-2.5 rounded-lg shadow transition flex items-center gap-1">🚀 ยืนยันการยืมพัสดุทั้งหมด</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="tx-details-modal"
+    class="fixed inset-0 bg-slate-900 bg-opacity-60 z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-xl p-6 w-full max-w-sm shadow-2xl border border-slate-100 animate-fadeIn">
+      <div class="text-center border-b border-slate-100 pb-3 mb-4">
+        <span class="text-3xl">📝</span>
+        <h3 class="text-sm font-bold text-slate-900 mt-1">รายละเอียดรายการธุรกรรมพัสดุ</h3>
+      </div>
+      <div id="tx-details-body" class="space-y-2.5 text-xs"></div>
+      <div class="flex justify-end gap-2 pt-4 border-t border-slate-100 mt-4">
+        <button onclick="closeModal('tx-details-modal')" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2 rounded-lg transition">ปิดหน้าจอ</button>
+        <button id="tx-approve-btn" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold py-2 rounded-lg transition hidden">📋 อนุมัติการยืม</button>
+        <button id="tx-return-btn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 rounded-lg transition hidden">📥 ส่งคืนพัสดุเข้าระบบ</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="auth-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950 p-4 overflow-y-auto">
+    <div id="login-box"
+      class="bg-white rounded-xl shadow-2xl p-6 sm:p-8 max-w-sm w-full border-t-4 border-amber-500 animate-fadeIn">
+      <div class="text-center mb-6">
+        <div class="text-4xl mb-2">🖥️</div>
+        <h2 class="text-xl font-bold text-slate-900 tracking-tight">CPE Smart Asset</h2>
+        <p class="text-xs font-bold text-amber-600 uppercase tracking-wider">วิศวกรรมคอมพิวเตอร์ มรพส.</p>
+      </div>
+      <form onsubmit="executeLogin(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">Username (ระบุอีเมลผู้ใช้)</label>
+          <input type="text" id="loginUsername" required class="w-full p-2.5 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:bg-white transition" placeholder="user@psru.ac.th">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">Password</label>
+          <input type="password" id="loginPassword" required class="w-full p-2.5 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:bg-white transition">
+
+          <div class="flex items-center mt-2 pl-0.5">
+            <label class="flex items-center gap-2 text-xxs sm:text-xs font-semibold text-slate-500 cursor-pointer select-none">
+                <input type="checkbox" onchange="toggleShowPasswordVisibility(this)" class="rounded border-slate-300 w-3.5 h-3.5 text-amber-500 focus:ring-amber-500">
+                แสดงรหัสผ่านที่คุณพิมพ์
+              </label>
+          </div>
+        </div>
+
+        <div id="login-error-msg"
+          class="text-xs text-red-600 font-bold hidden bg-red-50 p-2.5 rounded-lg border border-red-200 animate-fadeIn">
+        </div>
+        <button type="submit" id="loginBtn" class="w-full bg-slate-900 hover:bg-slate-800 text-amber-400 font-bold py-2.5 rounded-lg shadow-lg transition tracking-wide text-xs sm:text-sm">🔑 เข้าสู่ระบบ</button>
+      </form>
+      <div class="text-center mt-6 pt-4 border-t border-slate-100">
+        <p class="text-xs text-slate-500">ยังไม่มีบัญชีใช้งานในระบบ?
+          <button onclick="toggleAuthBox('REG')" class="text-slate-900 font-bold underline hover:text-amber-600">สมัครสมาชิกที่นี่</button>
+        </p>
+      </div>
+    </div>
+
+    <div id="register-box"
+      class="bg-white rounded-xl shadow-2xl p-6 sm:p-8 max-w-md w-full border-t-4 border-slate-700 hidden animate-fadeIn my-auto">
+      <div class="text-center mb-5">
+        <div class="text-3xl mb-1">📝</div>
+        <h2 class="text-lg font-bold text-slate-900">สมัครใช้งานระบบยืม-คืน</h2>
+      </div>
+      <form onsubmit="executeRegister(event)" class="space-y-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div><label class="block text-xs font-bold text-slate-600 mb-1">ชื่อ-นามสกุลจริง</label><input type="text" id="regFullName" required class="w-full p-2 border border-slate-200 rounded-lg text-xs bg-slate-50">
+          </div>
+          <div><label class="block text-xs font-bold text-slate-600 mb-1">Email ทางการ</label><input type="email" id="regEmail" required class="w-full p-2 border border-slate-200 rounded-lg text-xs bg-slate-50">
+          </div>
+        </div>
+        <div><label class="block text-xs font-bold text-slate-600 mb-1">รูปภาพโปรไฟล์</label><input type="file" id="regProfilePic" required accept="image/*" class="w-full p-1.5 border border-slate-200 rounded-lg text-xs bg-slate-50">
+        </div>
+        <div><label class="block text-xs font-bold text-slate-600 mb-1">Username (สำหรับล็อกอิน)</label><input type="text" id="regUsername" required class="w-full p-2 border border-slate-200 rounded-lg text-xs bg-slate-50" placeholder="user@psru.ac.th">
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div><label class="block text-xs font-bold text-slate-600 mb-1">Password</label><input type="password" id="regPassword" required class="w-full p-2 border border-slate-200 rounded-lg text-xs bg-slate-50" placeholder="อย่างน้อย 6 ตัว">
+          </div>
+          <div><label class="block text-xs font-bold text-slate-600 mb-1">ยืนยัน Password</label><input type="password" id="regConfirmPassword" required class="w-full p-2 border border-slate-200 rounded-lg text-xs bg-slate-50">
+          </div>
+        </div>
+        <div id="reg-error-msg"
+          class="text-xs text-red-600 font-bold hidden bg-red-50 p-2.5 rounded-lg border border-red-200"></div>
+        <div class="flex gap-3 pt-2">
+          <button type="button" onclick="toggleAuthBox('LOG')" class="w-1/3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2.5 rounded-lg transition">ย้อนกลับ</button>
+          <button type="submit" id="regBtn" class="w-2/3 bg-slate-900 hover:bg-slate-800 text-amber-400 text-xs font-bold py-2.5 rounded-lg shadow transition">✅ ยืนยันสมัครสมาชิก</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="main-application" class="hidden flex flex-col h-screen w-full overflow-hidden">
+
+    <header class="bg-slate-900 text-white px-4 py-3 border-b-2 border-amber-500 flex justify-between items-center h-16 w-full flex-shrink-0 z-30 shadow-lg">
+  <div class="flex items-center gap-3">
+    <button type="button" onclick="toggleMobileSidebar()" class="lg:hidden text-amber-400 text-2xl focus:outline-none">☰</button>
+    <div class="flex items-center gap-2">
+      <span class="text-xl sm:text-2xl">🖥️</span>
+      <div>
+        <h1 class="text-xs sm:text-sm font-bold tracking-tight text-white leading-tight">CPE Smart Asset Management</h1>
+        <p class="text-slate-400 font-semibold tracking-wider text-xxs uppercase">วิศวกรรมคอมพิวเตอร์ มรพส.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+    
+    <div onclick="openMyProfileModal()"
+      class="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-2.5 py-1.5 rounded-lg border border-slate-700 cursor-pointer transition select-none max-w-[120px] sm:max-w-[180px]">
+      <img id="nav-avatar" src="" class="w-5 h-5 rounded-full object-cover border border-amber-400 hidden bg-white">
+      <span id="user-display-email" class="text-xxs sm:text-xs font-medium text-slate-200 truncate">👤 Loading...</span>
+    </div>
+
+    <span id="role-badge" class="hidden sm:inline font-black text-amber-400 px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-xxs sm:text-xs tracking-wide">USER</span>
+
+    <button onclick="executeLogout()" class="bg-slate-800 hover:bg-rose-600 text-slate-400 hover:text-white px-2 py-1.5 rounded-lg border border-slate-700 transition text-xs font-bold">Logout</button>
+    
+</div>
+</header>
+
+    <div id="profile-barrier-banner"
+      class="bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 p-2 text-center text-xs font-bold animate-pulse hidden shadow-inner flex-shrink-0 z-20">
+      ⚠️ ข้อมูลโปรไฟล์ยังไม่สมบูรณ์ กรุณา
+      <button onclick="openMyProfileModal()" class="underline font-black text-slate-950 hover:text-white transition">คลิกอัปเดตประวัติข้อมูล</button>
+      ก่อนเข้าใช้งานระบบ
+    </div>
+
+    <div class="flex flex-1 w-full overflow-hidden relative">
+
+      <aside id="sidebar-menu"
+        class="w-64 bg-slate-900 text-slate-300 border-r border-slate-800 flex flex-col justify-between h-full flex-shrink-0 z-20 transition-all duration-300 absolute lg:static lg:translate-x-0 -translate-x-full shadow-2xl lg:shadow-none">
+        <div class="py-4">
+          <nav id="admin-nav-menu" class="hidden px-2 space-y-1">
+            <button type="button" onclick="switchTab('approval-tab', event)" class="sidebar-btn flex items-center justify-between w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold transition">
+              <div class="flex items-center gap-2.5"><span>📋</span> อนุมัติการยืมพัสดุ</div>
+              <span id="nav-approval-badge" class="bg-rose-600 text-white text-xxs font-black px-2 py-0.5 rounded-full hidden">0</span>
+            </button>
+            <button type="button" onclick="switchTab('borrow-tab', event)" class="sidebar-btn active flex items-center gap-2.5 w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold transition"><span>🔄</span> งานยืม-คืนพัสดุ</button>
+            <button type="button" onclick="switchTab('user-items-tab', event)" class="sidebar-btn flex items-center gap-2.5 w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold transition"><span>📦</span> พัสดุครุภัณฑ์ทั้งหมด</button>
+            <button type="button" id="nav-report-btn" onclick="switchTab('report-tab', event)" class="sidebar-btn flex items-center gap-2.5 w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold transition"><span>📊</span> สรุปรายงานสถิติ</button>
+            <button type="button" id="nav-items-btn" onclick="switchTab('items-tab', event)" class="sidebar-btn flex items-center gap-2.5 w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold transition"><span>⚙️</span> จัดการพัสดุในคลัง</button>
+            <button type="button" id="nav-users-btn" onclick="switchTab('users-tab', event)" class="sidebar-btn flex items-center gap-2.5 w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold transition"><span>👥</span> จัดการสิทธิ์ผู้ใช้</button>
+          </nav>
+
+          <nav id="user-nav-menu" class="hidden px-2 space-y-1">
+            <button type="button" onclick="switchTab('borrow-tab', event)" class="user-sidebar-btn active flex items-center gap-2.5 w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold transition"><span>🔄</span> งานยืม-คืนพัสดุ</button>
+            <button type="button" onclick="switchTab('user-items-tab', event)" class="user-sidebar-btn flex items-center gap-2.5 w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold transition"><span>📦</span> พัสดุครุภัณฑ์ทั้งหมด</button>
+          </nav>
+        </div>
+
+      </aside>
+
+      <div id="sidebar-overlay" onclick="toggleMobileSidebar()"
+        class="fixed inset-0 bg-slate-950/60 z-10 hidden lg:hidden"></div>
+
+      <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 w-full min-w-0 bg-slate-50 space-y-6">
+        
+        <div id="tab-content-approval-tab" class="tab-content hidden animate-fadeIn space-y-4">
+          <div class="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200">
+            <h2 class="text-base sm:text-lg font-bold text-slate-900">📋 รายการตรวจสอบและอนุมัติสิทธิ์การยืมพัสดุ</h2>
+            <p class="text-xxs sm:text-xs text-slate-400 mt-0.5">พิจารณาอนุมัติหรือปฏิเสธคำขอยืมทรัพยากรครุภัณฑ์จากนักศึกษาและบุคลากรภาควิชา</p>
+          </div>
+          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="overflow-x-auto w-full">
+              <table class="w-full text-sm text-left">
+                <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th class="p-3.5 text-center">รหัสธุรกรรม</th>
+                    <th class="p-3.5">พัสดุครุภัณฑ์</th>
+                    <th class="p-3.5 text-center">จำนวน</th>
+                    <th class="p-3.5">ผู้ส่งคำขอยืม</th>
+                    <th class="p-3.5">จุดประสงค์</th>
+                    <th class="p-3.5">กำหนดส่งคืน</th>
+                    <th class="p-3.5 text-center">การจัดการ</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-approval-tbody">
+                  <tr><td colspan="7" class="p-6 text-center text-slate-400">🔄 กำลังเรียกข้อมูลคำขอยืม...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="tab-content-user-items-tab" class="tab-content hidden animate-fadeIn space-y-4">
+          <div class="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200">
+            <h2 class="text-base sm:text-lg font-bold text-slate-900">📦 รายการครุภัณฑ์และโสตทัศนูปกรณ์
+              คลังวิศวกรรมคอมพิวเตอร์</h2>
+            <p class="text-xxs sm:text-xs text-slate-400 mt-0.5">
+              ตรวจสอบสถานะความพร้อมใช้งานและเลือกพัสดุอุปกรณ์คอมพิวเตอร์ลงตะกร้าส่วนบุคคลเพื่อส่งคำขอยืม</p>
+          </div>
+          <div id="user-items-grid-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </div>
+
+        <div id="tab-content-report-tab" class="tab-content hidden animate-fadeIn space-y-6">
+          <div
+            class="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div>
+              <h2 class="text-base sm:text-lg font-bold text-slate-900">📊
+                แผงควบคุมและรายงานสถิติทรัพยากรคลังระบบประจำปี 2026</h2>
+              <p class="text-xxs sm:text-xs text-slate-400">for คณะผู้บริหาร หัวหน้าภาควิชา
+                และเจ้าหน้าที่ดูแลคลังพัสดุ วิศวกรรมคอมพิวเตอร์ มรพส.</p>
+            </div>
+            <div
+              class="flex bg-slate-100 p-1 rounded-xl border border-slate-200 self-stretch sm:self-auto justify-center">
+              <button type="button" onclick="changeExecutiveFilter('WEEK')" id="btn-filter-WEEK" class="filter-btn px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition">สัปดาห์นี้</button>
+              <button type="button" onclick="changeExecutiveFilter('MONTH')" id="btn-filter-MONTH" class="filter-btn px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition">เดือนนี้</button>
+              <button type="button" onclick="changeExecutiveFilter('YEAR')" id="btn-filter-YEAR" class="filter-btn px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition">ปีนี้</button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+            <div class="bg-white p-3 sm:p-4 rounded-xl shadow-sm border border-slate-200 text-center">
+              <p class="text-slate-400 text-xxs font-bold uppercase mb-1">ครุภัณฑ์ทั้งหมด</p>
+              <p id="kpi-total-items" class="text-lg sm:text-xl font-black text-slate-900">0</p>
+            </div>
+            <div class="bg-white p-3 sm:p-4 rounded-xl shadow-sm border border-slate-200 text-center">
+              <p class="text-emerald-600 text-xxs font-bold uppercase mb-1">🟢 ในคลัง</p>
+              <p id="kpi-avail-items" class="text-lg sm:text-xl font-black text-emerald-600">0</p>
+            </div>
+            <div class="bg-white p-3 sm:p-4 rounded-xl shadow-sm border border-slate-200 text-center">
+              <p class="text-rose-500 text-xxs font-bold uppercase mb-1">🔴 ถูกยืมใช้</p>
+              <p id="kpi-borrow-items" class="text-lg sm:text-xl font-black text-rose-500">0</p>
+            </div>
+            <div class="bg-slate-900 text-white p-3 sm:p-4 rounded-xl shadow-sm text-center border border-slate-800">
+              <p class="text-amber-400 text-xxs font-bold uppercase mb-1">🔄 จำนวนการยืม</p>
+              <p id="kpi-range-borrows" class="text-lg sm:text-xl font-black text-amber-400">0</p>
+            </div>
+            <div class="bg-white p-3 sm:p-4 rounded-xl shadow-sm border border-slate-200 text-center">
+              <p class="text-amber-600 text-xxs font-bold uppercase mb-1">⚠️ ค้างส่งคืน</p>
+              <p id="kpi-range-pending" class="text-lg sm:text-xl font-black text-amber-600">0</p>
+            </div>
+            <div class="bg-white p-3 sm:p-4 rounded-xl shadow-sm border border-slate-200 text-center">
+              <p class="text-indigo-600 text-xxs font-bold uppercase mb-1">✅ คืนแล้ว</p>
+              <p id="kpi-range-returned" class="text-lg sm:text-xl font-black text-indigo-600">0</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-slate-200">
+              <h4 class="text-xs font-bold text-slate-700 mb-4 border-b border-slate-100 pb-2 uppercase">📌
+                สัดส่วนการยืมแยกตามห้องจัดเก็บ</h4>
+              <div class="relative h-56 sm:h-60 w-full flex justify-center items-center"><canvas
+                  id="locationPieChart"></canvas></div>
+            </div>
+            <div class="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-slate-200">
+              <h4 class="text-xs font-bold text-slate-700 mb-4 border-b border-slate-100 pb-2 uppercase">🔥
+                ครุภัณฑ์ยอดนิยมที่มีอัตราการยืมสูงสุด</h4>
+              <div class="relative h-56 sm:h-60 w-full flex justify-center items-center"><canvas
+                  id="itemsBarChart"></canvas></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="tab-content-borrow-tab" class="tab-content animate-fadeIn space-y-6">
+          <div id="section-dashboard" class="hidden sm:block">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div
+                class="bg-white p-4 sm:p-5 rounded-xl shadow-sm border-l-4 border-slate-900 flex justify-between items-center">
+                <span class="text-slate-400 text-xs font-bold uppercase">พัสดุอุปกรณ์ทั้งหมด</span><span id="count-total" class="text-base sm:text-xl font-bold text-slate-900">0</span>
+              </div>
+              <div
+                class="bg-white p-4 sm:p-5 rounded-xl shadow-sm border-l-4 border-emerald-500 flex justify-between items-center">
+                <span class="text-slate-400 text-xs font-bold uppercase">พร้อมใช้งาน (ชิ้น)</span><span id="count-available" class="text-base sm:text-xl font-bold text-emerald-600">0</span>
+              </div>
+              <div
+                class="bg-white p-4 sm:p-5 rounded-xl shadow-sm border-l-4 border-rose-500 flex justify-between items-center">
+                <span class="text-slate-400 text-xs font-bold uppercase">ถูกยืมไป</span><span id="count-borrowed" class="text-base sm:text-xl font-bold text-rose-600">0</span>
+              </div>
+            </div>
+          </div>
+
+          <div id="personal-history-box"
+            class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden animate-fadeIn">
+            <div
+              class="p-4 bg-slate-900 border-b border-slate-800 font-bold text-amber-400 text-xs sm:text-sm uppercase tracking-wider flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1">
+              <span>📋 ประวัติบันทึกธุรกรรมการยืม-คืนพัสดุครุภัณฑ์ในระบบ</span>
+              <span class="text-xxs bg-slate-800 px-2 py-0.5 rounded text-slate-300 font-normal">คลิกที่แถวเพื่อดูรายละเอียด/ส่งคืนชิ้นงาน</span>
+            </div>
+            <div class="overflow-x-auto w-full">
+              <table class="w-full text-sm text-left">
+  <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+    <tr>
+      <th class="p-3.5 text-center">รหัสพัสดุ</th>
+      <th class="p-3.5">ชื่อครุภัณฑ์อุปกรณ์</th>
+      <th class="p-3.5 text-center">จำนวนยืม</th>
+      <th class="p-3.5">ผู้ทำรายการยืม</th>
+      <th class="p-3.5">วันที่ยืม</th>
+      <th class="p-3.5">กำหนดส่งคืน</th>
+      <th class="p-3.5">วันที่คืนจริง</th> <th class="p-3.5 text-center">สถานะ</th>
+    </tr>
+  </thead>
+  <tbody id="user-history-tbody">
+    </tbody>
+</table>
+            </div>
+          </div>
+        </div>
+
+        <div id="tab-content-items-tab" class="tab-content hidden animate-fadeIn">
+          <div class="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <div
+              class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4 border-b border-slate-100 pb-3">
+              <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wide">📦 คลังข้อมูลครุภัณฑ์อุปกรณ์ทั้งหมด
+              </h3>
+              <button type="button" onclick="openItemModal('ADD')" class="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 text-amber-400 text-xs font-bold px-4 py-2 rounded-lg transition shadow">+ เพิ่มพัสดุใหม่</button>
+            </div>
+            <div class="overflow-x-auto w-full">
+              <table class="w-full text-xs sm:text-sm border-collapse text-center min-w-[800px]">
+                <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase">
+                  <tr>
+                    <th class="p-3 text-center">ภาพตัวอย่าง</th>
+                    <th class="p-3 text-left">รหัสพัสดุ</th>
+                    <th class="p-3 text-left">ชื่อพัสดุ</th>
+                    <th class="p-3 text-center">ประเภทพัสดุ</th>
+                    <th class="p-3 text-center">จำนวน</th>
+                    <th class="p-3 text-left">สถานที่จัดเก็บ</th>
+                    <th class="p-3 text-center">สถานะปัจจุบัน</th>
+                    <th class="p-3 text-center">จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody id="items-manage-tbody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="tab-content-users-tab" class="tab-content hidden animate-fadeIn">
+          <div class="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <div
+              class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4 border-b border-slate-100 pb-3">
+              <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wide">👥
+                จัดการสิทธิ์และบัญชีผู้เข้าใช้งานระบบ</h3>
+              <button type="button" onclick="openUserModal('ADD')" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition shadow">+ เพิ่มผู้ใช้ใหม่</button>
+            </div>
+            <div class="overflow-x-auto w-full">
+              <table class="w-full text-xs sm:text-sm border-collapse min-w-[500px]">
+                <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase">
+                  <tr>
+                    <th class="p-3 text-left">Username</th>
+                    <th class="p-3 text-left">ระดับสิทธิ์</th>
+                    <th class="p-3 text-left">รหัสผ่าน</th>
+                    <th class="p-3 text-center">จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody id="users-manage-tbody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+<div id="profile-modal" class="fixed inset-0 bg-slate-900 bg-opacity-60 z-50 flex items-center justify-center hidden p-4">
+  <div class="bg-white rounded-xl p-6 w-full max-w-lg shadow-2xl border border-slate-100 animate-fadeIn overflow-y-auto max-h-[90vh] flex flex-col">
+    
+    <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
+      <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">📝 ข้อมูลส่วนตัวของคุณ</h3>
+      <button onclick="closeProfileModal()" class="text-slate-400 hover:text-slate-600 font-bold text-sm">✕</button>
+    </div>
+
+    <form onsubmit="submitProfileForm(event)" class="space-y-3">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div><label class="block text-xs font-bold text-slate-700">ชื่อ-นามสกุลจริง</label><input type="text" id="profFullName" required class="w-full p-2.5 border border-slate-200 rounded-lg text-xs bg-white focus:border-slate-900 transition"></div>
+        <div><label class="block text-xs font-bold text-slate-700">อีเมล</label><input type="email" id="profEmail" required class="w-full p-2.5 border border-slate-200 rounded-lg text-xs bg-white focus:border-slate-900 transition"></div>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div><label class="block text-xs font-bold text-slate-700">เบอร์โทรศัพท์</label><input type="text" id="profPhone" required class="w-full p-2.5 border border-slate-200 rounded-lg text-xs bg-white focus:border-slate-900 transition"></div>
+        <div><label class="block text-xs font-bold text-slate-700">ตำแหน่ง</label>
+           <select id="profPosition" required class="w-full p-2.5 border border-slate-200 rounded-lg text-xs bg-white">
+            <option value="อาจารย์">อาจารย์</option><option value="เจ้าหน้าที่">เจ้าหน้าที่</option><option value="นักศึกษา">นักศึกษา</option>
+           </select></div>
+      </div>
+      <div><label class="block text-xs font-bold text-slate-700">รหัส (นักศึกษา/บัตรประชาชน)</label><input type="text" id="profIdCode" required class="w-full p-2.5 border border-slate-200 rounded-lg text-xs bg-white focus:border-slate-900 transition"></div>
+      <div><label class="block text-xs font-bold text-slate-700">สาขาวิชา</label>
+           <select id="profMajor" required class="w-full p-2.5 border border-slate-200 rounded-lg text-xs bg-white">
+            <option value="วิศวกรรมคอมพิวเตอร์">วิศวกรรมคอมพิวเตอร์</option>
+            <option value="สำนักงานคณะเทคโนโลยีอุตสาหกรรม">สำนักงานคณะเทคโนโลยีอุตสาหกรรม</option>
+           </select></div>
+      <div><label class="block text-xs font-bold text-slate-700">Line ID</label><input type="text" id="profLineId" class="w-full p-2.5 border border-slate-200 rounded-lg text-xs bg-white focus:border-slate-900 transition"></div>
+      <div><label class="block text-xs font-bold text-slate-700">เปลี่ยนรูปโปรไฟล์</label><input type="file" id="profProfilePic" accept="image/*" class="w-full p-2 border border-slate-200 rounded-lg text-xs bg-white"></div>
+      
+      <div class="pt-4 mt-2 border-t border-slate-100">
+        <button type="submit" id="profSaveBtn" class="w-full bg-slate-900 hover:bg-slate-800 text-amber-400 font-bold py-3 rounded-lg shadow-lg transition">💾 บันทึกข้อมูลส่วนตัว</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+  <div id="item-modal"
+    class="fixed inset-0 bg-slate-900 bg-opacity-50 z-50 flex items-center justify-center hidden p-4 overflow-y-auto">
+    <div
+      class="bg-white rounded-2xl p-5 sm:p-6 w-full max-w-md shadow-xl border border-slate-200 my-auto animate-fadeIn">
+      <h3 id="item-modal-title" class="text-sm font-bold text-slate-900 mb-4 border-b border-slate-100 pb-2">
+        จัดการข้อมูลอุปกรณ์</h3>
+      <form id="itemModalForm" onsubmit="submitItemForm(event)" class="space-y-3.5">
+        <input type="hidden" id="itemMode">
+        <div><label class="block text-xs font-bold text-slate-600 mb-1">รหัสพัสดุ</label><input type="text" id="modalItemId" required class="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50">
+        </div>
+        <div><label class="block text-xs font-bold text-slate-600 mb-1">ชื่อพัสดุ</label><input type="text" id="modalItemName" required class="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">ประเภทพัสดุ</label><select id="modalItemType" required class="w-full p-2 border border-slate-200 rounded-lg text-sm bg-white"><option value="วัสดุ">วัสดุ</option><option value="ครุภัณฑ์" selected>ครุภัณฑ์</option></select>
+        </div>
+        <div><label class="block text-xs font-bold text-slate-600 mb-1">จำนวน</label><input type="number" id="modalItemQuantity" required min="0" value="1" class="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50">
+        </div>
+        <div><label class="block text-xs font-bold text-slate-600 mb-1">สถานที่จัดเก็บ</label><input type="text" id="modalItemLocation" required class="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">สถานะปัจจุบัน</label><select id="modalItemStatus" class="w-full p-2 border border-slate-200 rounded-lg text-sm bg-white"><option value="พร้อมใช้งาน">พร้อมใช้งาน</option><option value="ถูกยืม">ถูกยืม</option><option value="ชำรุด">ชำรุด</option></select>
+        </div>
+        <div><label class="block text-xs font-bold text-slate-600 mb-1">แนบรูปพัสดุ</label><input type="file" id="modalItemFile" accept="image/*" onchange="previewItemFileImage(this)" class="w-full p-1 border border-slate-200 rounded-lg text-xs bg-slate-50">
+          <div class="mt-2 text-center"><img id="modalItemImagePreview" src="" class="img-thumbnail rounded-lg mx-auto max-h-32 hidden border">
+          </div>
+        </div>
+        <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+          <button type="button" onclick="closeModal('item-modal')" class="bg-slate-100 text-gray-700 px-4 py-2 rounded-lg text-xs font-bold transition">ยกเลิก</button><button type="submit" class="bg-slate-900 text-amber-400 px-4 py-2 rounded-lg text-xs font-bold shadow transition">บันทึกข้อมูล</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    let CURRENT_USER_EMAIL = "";
+      let CURRENT_USER_ROLE = "USER";
+      let IS_PROFILE_COMPLETE = true; 
+      let MY_PROFILE_CACHE = null; 
+      let ALL_ITEMS_CACHE = []; 
+      let ALL_USERS_CACHE = [];
+      let locationChartInstance = null;
+      let itemsChartInstance = null;
+      let CURRENT_EXECUTIVE_FILTER = "MONTH";
+      let MY_ASSET_CART = [];
+
+      function toggleMobileSidebar() {
+        const sidebar = document.getElementById("sidebar-menu");
+        const overlay = document.getElementById("sidebar-overlay");
+        if(sidebar && overlay) {
+          if(sidebar.classList.contains("-translate-x-full")) {
+            sidebar.classList.remove("-translate-x-full");
+            overlay.classList.remove("hidden");
+          } else {
+            sidebar.classList.add("-translate-x-full");
+            overlay.classList.add("hidden");
+          }
+        }
+      }
+
+      function toggleShowPasswordVisibility(checkboxEl) {
+        const passwordInput = document.getElementById("loginPassword");
+        if(passwordInput) {
+          if(checkboxEl.checked) {
+            passwordInput.type = "text"; 
+          } else {
+            passwordInput.type = "password"; 
+          }
+        }
+      }
+  </script>
+
+  <div id="user-modal"
+    class="fixed inset-0 bg-slate-900 bg-opacity-50 z-50 flex items-center justify-center hidden p-4 overflow-y-auto">
+
+    <div
+      class="bg-white rounded-2xl p-5 sm:p-6 w-full max-w-md shadow-xl border border-slate-200 my-auto animate-fadeIn">
+
+      <h3 id="user-modal-title" class="text-sm font-bold text-slate-900 mb-4 border-b border-slate-100 pb-2">
+        จัดการสิทธิ์ผู้ใช้งาน
+      </h3>
+
+      <form id="userModalForm" onsubmit="submitUserForm(event)" class="space-y-3.5">
+
+        <input type="hidden" id="userMode">
+
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">
+          Username
+        </label>
+
+          <input type="text"
+          id="modalUsername"
+          required
+          class="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">
+          Password
+        </label>
+
+          <input type="password"
+          id="modalPassword"
+          placeholder="กรอกเฉพาะเมื่อต้องการเปลี่ยนรหัสผ่าน"
+          class="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">
+          ระดับสิทธิ์
+        </label>
+
+          <select id="modalRole"
+          required
+          class="w-full p-2 border border-slate-200 rounded-lg text-sm bg-white">
+
+          <option value="USER">USER</option>
+          <option value="ADMIN">ADMIN</option>
+          <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+
+        </select>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+
+          <button type="button"
+          onclick="closeModal('user-modal')"
+          class="bg-slate-100 text-gray-700 px-4 py-2 rounded-lg text-xs font-bold transition">
+
+          ยกเลิก
+        </button>
+
+          <button type="submit"
+          class="bg-slate-900 text-amber-400 px-4 py-2 rounded-lg text-xs font-bold shadow transition">
+
+          บันทึกข้อมูล
+        </button>
+
+        </div>
+      </form>
+    </div>
+  </div>
+  <?!= include('JavaScript'); ?>
+</body>
+
+</html>
