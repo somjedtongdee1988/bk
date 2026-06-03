@@ -453,60 +453,98 @@ function updateProfileData(username, fullName, email, phone, position, idCode, m
   }
 }
 
-function getUserLoanHistory(username, role) {
+// ...existing code...
+function getUserLoanHistory(username, role, page, pageSize) {
   try {
+    // ตั้งค่า pagination ค่าเริ่มต้น
+    page = parseInt(page, 10) || 1;
+    pageSize = parseInt(pageSize, 10) || 50;
+    const neededCount = page * pageSize;
+
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const transSheet = ss.getSheetByName("Transactions");
     const itemSheet = ss.getSheetByName("Items");
-    const transData = transSheet.getDataRange().getValues();
-    const itemData = itemSheet.getDataRange().getValues();
-    const itemMap = {};
-    for (let i = 1; i < itemData.length; i++) {
-      if (itemData[i][0]) itemMap[itemData[i][0]] = itemData[i][1];
+
+    // อ่านเฉพาะช่วงแถวที่มีข้อมูลจริง (ลดการอ่านทั้งชีตเมื่อไฟล์ใหญ่)
+    const lastTransRow = Math.max(1, transSheet.getLastRow());
+    const lastTransCol = Math.max(1, transSheet.getLastColumn());
+    const transData = lastTransRow >= 1 ? transSheet.getRange(1, 1, lastTransRow, lastTransCol).getValues() : [];
+
+    // ใช้ CacheService เก็บข้อมูล itemMap สั้น ๆ เพื่อลดการอ่านบ่อย ๆ
+    const cache = CacheService.getScriptCache();
+    const cacheKey = 'itemMap_v1';
+    let itemMap = {};
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      try { itemMap = JSON.parse(cached); } catch (e) { itemMap = {}; }
     }
-    const historyList = [];
+    if (!cached || Object.keys(itemMap).length === 0) {
+      const lastItemRow = Math.max(1, itemSheet.getLastRow());
+      const lastItemCol = Math.max(1, itemSheet.getLastColumn());
+      const itemData = lastItemRow >= 1 ? itemSheet.getRange(1, 1, lastItemRow, lastItemCol).getValues() : [];
+      for (let i = 1; i < itemData.length; i++) {
+        if (itemData[i][0]) itemMap[itemData[i][0].toString().trim()] = itemData[i][1] || "";
+      }
+      // เก็บ cache 300 วินาที
+      try { cache.put(cacheKey, JSON.stringify(itemMap), 300); } catch (e) { /* ignore cache errors */ }
+    }
+
     const targetUser = username ? username.trim().toLowerCase() : "";
     const userRole = role ? role.trim().toUpperCase() : "USER";
     const ssTimeZone = ss.getSpreadsheetTimeZone();
 
+    // วนจากแถวล่าสุดไปก่อน และหยุดเมื่อได้ข้อมูลพอสำหรับ requested page (ลดการประมวลผล)
+    const matched = [];
     for (let j = transData.length - 1; j >= 1; j--) {
-      if (!transData[j][1]) continue;
+      if (!transData[j] || !transData[j][1]) continue;
       const transUser = transData[j][3] ? transData[j][3].toString().trim().toLowerCase() : "";
       if (userRole === "ADMIN" || userRole === "SUPER_ADMIN" || transUser === targetUser) {
-        
-        let bDateFormatted = "-";
-        let dDateFormatted = "-";
-        let rDateFormatted = "-";
-
-        const bRaw = transData[j][4];
-        if (bRaw) {
-          bDateFormatted = Utilities.formatDate(bRaw instanceof Date ? bRaw : new Date(bRaw), ssTimeZone, "dd/MM/yyyy HH:mm");
-        }
-        const dRaw = transData[j][5];
-        if (dRaw) {
-          dDateFormatted = Utilities.formatDate(dRaw instanceof Date ? dRaw : new Date(dRaw), ssTimeZone, "dd/MM/yyyy");
-        }
-        const rRaw = transData[j][6];
-        if (rRaw) {
-          rDateFormatted = Utilities.formatDate(rRaw instanceof Date ? rRaw : new Date(rRaw), ssTimeZone, "dd/MM/yyyy HH:mm");
-        }
-
-        historyList.push({
-          transId: transData[j][0],
-          itemId: transData[j][1],
-          itemName: itemMap[transData[j][1]] || "ไม่พบชื่อพัสดุในคลัง",
-          borrowerName: transData[j][2] ? transData[j][2].toString().trim() : "ไม่ระบุชื่อ",
-          borrowerEmail: transUser,
-          borrowDate: bDateFormatted,
-          dueDate: dDateFormatted,
-          returnDate: rDateFormatted,
-          status: transData[j][7],
-          purpose: transData[j][8] || "-",
-          qty: transData[j][9] || 1
-        });
+        matched.push(j); // เก็บ index ของแถวที่ตรงเงื่อนไข
+        if (matched.length >= neededCount) break; // หยุดเมื่อได้เพียงพอ
       }
     }
-    return { success: true, history: historyList, isGlobalView: (userRole === "ADMIN" || userRole === "SUPER_ADMIN") };
+
+    const historyList = [];
+    // สร้างผลลัพธ์สำหรับ page ที่ต้องการ (only format those rows)
+    const startIndex = (page - 1) * pageSize;
+    for (let k = startIndex; k < Math.min(matched.length, startIndex + pageSize); k++) {
+      const rowIdx = matched[k];
+      const row = transData[rowIdx];
+
+      // ฟอร์แมตวันที่เฉพาะแถวที่ต้องส่งกลับ
+      let bDateFormatted = "-";
+      let dDateFormatted = "-";
+      let rDateFormatted = "-";
+
+      const bRaw = row[4];
+      if (bRaw) bDateFormatted = Utilities.formatDate(bRaw instanceof Date ? bRaw : new Date(bRaw), ssTimeZone, "dd/MM/yyyy HH:mm");
+
+      const dRaw = row[5];
+      if (dRaw) dDateFormatted = Utilities.formatDate(dRaw instanceof Date ? dRaw : new Date(dRaw), ssTimeZone, "dd/MM/yyyy");
+
+      const rRaw = row[6];
+      if (rRaw) rDateFormatted = Utilities.formatDate(rRaw instanceof Date ? rRaw : new Date(rRaw), ssTimeZone, "dd/MM/yyyy HH:mm");
+
+      const borrowerEmail = row[3] ? row[3].toString().trim().toLowerCase() : "";
+      historyList.push({
+        transId: row[0],
+        itemId: row[1],
+        itemName: itemMap[row[1].toString().trim()] || "ไม่พบชื่อพัสดุในคลัง",
+        borrowerName: row[2] ? row[2].toString().trim() : "ไม่ระบุชื่อ",
+        borrowerEmail: borrowerEmail,
+        borrowDate: bDateFormatted,
+        dueDate: dDateFormatted,
+        returnDate: rDateFormatted,
+        status: row[7],
+        purpose: row[8] || "-",
+        qty: row[9] || 1
+      });
+    }
+
+    // ส่งข้อมูลจำนวนรวม (เพื่อให้ UI แสดง pagination ได้)
+    const totalMatches = matched.length;
+    const isGlobalView = (userRole === "ADMIN" || userRole === "SUPER_ADMIN");
+    return { success: true, history: historyList, total: totalMatches, page: page, pageSize: pageSize, isGlobalView: isGlobalView };
   } catch (e) { return { success: false, message: e.toString() }; }
 }
 
