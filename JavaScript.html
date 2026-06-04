@@ -268,6 +268,7 @@
         if(floatingCartBtn) floatingCartBtn.classList.remove("hidden");
         CURRENT_EXECUTIVE_FILTER = "MONTH";
         changeExecutiveFilter("MONTH");
+        if (typeof loadUserHistoryData === "function") loadUserHistoryData();
       } else {
         if(reportTab) reportTab.classList.add("hidden");
         if(userItemsTab) userItemsTab.classList.add("hidden");
@@ -423,8 +424,10 @@ function _renderHistoryRows(tbody, adminApprovalTbody, rows, activeRole) {
 
 /* แก้ไข loadUserHistoryData ให้เรนเดอร์ 5 รายการแรก และแสดงปุ่ม "ดูเพิ่มเติมทั้งหมด" เมื่อจำเป็น */
 function loadUserHistoryData() {
-  const activeEmail = window.CURRENT_USER_EMAIL || "";
-  const activeRole = window.CURRENT_USER_ROLE || "USER";
+  // รองรับทั้งกรณีตัวแปรถูกประกาศแบบ global หรือเป็น property ของ window
+  const activeEmail = (typeof CURRENT_USER_EMAIL !== "undefined" ? CURRENT_USER_EMAIL : (window && window.CURRENT_USER_EMAIL)) || "";
+  const activeRole = (typeof CURRENT_USER_ROLE !== "undefined" ? CURRENT_USER_ROLE : (window && window.CURRENT_USER_ROLE)) || "USER";
+
   const tbody = document.getElementById("user-history-tbody");
   const moreRow = document.getElementById("user-history-more-row");
   const moreBtn = document.getElementById("load-more-history-btn");
@@ -436,7 +439,6 @@ function loadUserHistoryData() {
     return;
   }
 
-  // เรียกแค่ 5 รายการ (fast mode)
   google.script.run.withSuccessHandler(function(res) {
     console.log("getUserLoanHistory res:", res);
     if (!res || !res.success) {
@@ -456,7 +458,6 @@ function loadUserHistoryData() {
 
     _renderHistoryRows(tbody, adminApprovalTbody, rows, activeRole);
 
-    // ตรวจสอบเงื่อนไขการแสดงปุ่ม (หลายกรณี)
     const PAGE_SIZE = 5;
     const hasMoreFlag = (typeof res.hasMore !== "undefined") ? !!res.hasMore : undefined;
     const totalFromServer = (typeof res.total === "number") ? res.total : null;
