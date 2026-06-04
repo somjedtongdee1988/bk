@@ -685,6 +685,7 @@ function _formatDateSafe(raw, tz, fmt) {
   if (!raw) return "-";
   const d = raw instanceof Date ? raw : new Date(raw);
   try { return Utilities.formatDate(d, tz, fmt); } catch (e) { return d.toLocaleString(); }
+
 }
 
 /* ปรับปรุง getDashboardData ให้อ่านเฉพาะแถวจริงและลดการประมวลผลซ้ำ */
