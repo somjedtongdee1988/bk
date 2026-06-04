@@ -979,7 +979,30 @@ function borrowCartItems(cartItems, borrowerName, borrowerEmail, borrowDateStr, 
   } catch (e) { return { success: false, message: "Error: " + e.toString() }; }
 }
 
-// [COMPLETE CONFIG] ฟังก์ชันสำหรับการอนุมัติคำขอยืม (Approve) พร้อมหักลบสต็อกตามไอเทมจริง
+/**
+ * helper: หาอีเมลจาก Users sheet โดยรับ identifier ที่อาจเป็น username หรือ fullName
+ */
+function findUserEmailByIdentifier(identifier) {
+  try {
+    if (!identifier) return null;
+    const id = String(identifier).trim().toLowerCase();
+    const usersRes = _readSheetAll('Users');
+    const users = usersRes.values || [];
+    for (let r = 1; r < users.length; r++) {
+      const row = users[r] || [];
+      const username = String(row[0] || '').trim().toLowerCase();
+      const fullName = String(row[3] || '').trim().toLowerCase();
+      const email = String(row[4] || '').trim();
+      if (!email) continue;
+      if (username === id || fullName === id) return email;
+    }
+  } catch (e) {
+    Logger.log("findUserEmailByIdentifier error: " + e.toString());
+  }
+  return null;
+}
+
+/* แทนที่ส่วนหา/ส่งอีเมลใน approveSingleBorrowRequest ด้วยโค้ดนี้ */
 function approveSingleBorrowRequest(transId, itemId) {
   try {
     var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -998,14 +1021,14 @@ function approveSingleBorrowRequest(transId, itemId) {
           && String(transData[j][7]).trim() === "รออนุมัติ") {
         foundTransRow = j + 1;
         qtyToBorrow = parseInt(transData[j][9]) || 1;
-        borrowerIdentifier = String(transData[j][2] || "").trim(); // column C = borrowerName/username
+        borrowerIdentifier = String(transData[j][2] || "").trim();
         break;
       }
     }
 
     if (foundTransRow === -1) return { success: false, message: "❌ ไม่พบรายการคำขอยืมรออนุมัติที่ตรงกัน" };
 
-    // ลดสต็อก
+    // ลดสต็อก (เหมือนเดิม)
     let foundItemRow = -1;
     let currentStock = 0;
     for (let i = 1; i < itemData.length; i++) {
@@ -1022,27 +1045,34 @@ function approveSingleBorrowRequest(transId, itemId) {
       itemSheet.getRange(foundItemRow, 6).setValue(nextStock > 0 ? "พร้อมใช้งาน" : "ถูกยืม");
     }
 
-    // อัปเดต transaction (วันที่ยืม, สถานะ)
+    // อัปเดต transaction
     transSheet.getRange(foundTransRow, 5).setValue(new Date()); 
     transSheet.getRange(foundTransRow, 8).setValue("กำลังยืม");
 
-    // พยายามหาอีเมลผู้ยืม: ดูใน transaction ก่อน ถ้าไม่มี ให้ค้นจาก Users (คอลัมน์ E) โดยใช้ borrowerIdentifier
+    // หาอีเมล: ดูใน transaction.col4 ก่อน ถ้าไม่มี ให้ค้นจาก Users.colE (ผ่าน helper)
     let borrowerEmail = String(transSheet.getRange(foundTransRow, 4).getValue() || "").trim();
     if (!borrowerEmail && borrowerIdentifier) {
-      borrowerEmail = getUserEmail(borrowerIdentifier) || "";
+      borrowerEmail = findUserEmailByIdentifier(borrowerIdentifier) || getUserEmail(borrowerIdentifier) || "";
     }
-    // ส่งอีเมลตอบกลับผู้ยืม (ถ้ามี)
+
+    Logger.log("approveSingleBorrowRequest debug -> transId:%s, itemId:%s, borrowerIdentifier:%s, resolvedEmail:%s", transId, itemId, borrowerIdentifier, borrowerEmail);
+
     try {
-      if (borrowerEmail) {
+      if (borrowerEmail && borrowerEmail.indexOf('@') !== -1) {
         const subject = `แจ้งผลการอนุมัติคำขอยืมพัสดุ ${itemId}`;
-        const body = `คำขอของคุณได้รับการอนุมัติ: ${itemId} ${itemData && itemData.length? (itemData.find(r=>String(r[0]).trim()===String(itemId).trim())||[])[1] : ""}`;
+        const itemLabel = (itemData && itemData.length) ? (itemData.find(r => String(r[0]).trim() === String(itemId).trim()) || [])[1] : "";
+        const body = `คำขอของคุณได้รับการอนุมัติ: ${itemId} ${itemLabel}`;
         GmailApp.sendEmail(borrowerEmail, subject, body, { htmlBody: body, replyTo: SYSTEM_EMAIL, name: "CPE Smart Asset Management" });
-        Logger.log("Approval email sent to: " + borrowerEmail + " for trans " + transId);
+        Logger.log("Approval email sent -> to:%s trans:%s", borrowerEmail, transId);
       } else {
-        Logger.log("No borrower email found for trans " + transId + " (cannot send approval email)");
+        Logger.log("approveSingleBorrowRequest: no borrower email resolved for trans %s (identifier: %s)", transId, borrowerIdentifier);
+        try { GmailApp.sendEmail(ADMIN_EMAIL_DEFAULT, `⚠️ ขาดอีเมลผู้ยืม: ${transId}`, `ไม่พบอีเมลสำหรับ transaction ${transId} (identifier: ${borrowerIdentifier}).`); }
+        catch(eAdmin) { Logger.log("Notify admin failed: " + eAdmin.toString()); }
       }
     } catch (mailErr) {
-      Logger.log("Warning: sendApprovalEmail failed: " + mailErr.toString());
+      Logger.log("approveSingleBorrowRequest: Gmail send error for trans %s -> %s", transId, mailErr.toString());
+      try { GmailApp.sendEmail(ADMIN_EMAIL_DEFAULT, `⚠️ Email send error for ${transId}`, `Error: ${mailErr.toString()}\nResolvedEmail: ${borrowerEmail}\nItem: ${itemId}`); }
+      catch(e2) { Logger.log("Failed to notify admin about mail error: " + e2.toString()); }
     }
 
     // ส่งสรุปเมลเมื่อครบทุกชิ้นในตะกร้า
@@ -1053,7 +1083,7 @@ function approveSingleBorrowRequest(transId, itemId) {
 }
 
 
-// [COMPLETE CONFIG] ฟังก์ชันสำหรับการปฏิเสธคำขอยืม (Reject) และส่งเหตุผลเข้าอีเมลผู้ใช้
+/* แทนที่ส่วนหา/ส่งอีเมลใน rejectSingleBorrowRequest ด้วยโค้ดนี้ */
 function rejectSingleBorrowRequest(transId, itemId, reason) {
   try {
     var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -1081,26 +1111,30 @@ function rejectSingleBorrowRequest(transId, itemId, reason) {
       transSheet.getRange(foundTransRow, 9).setValue(currentPurpose + " [เหตุผลปฏิเสธ: " + reason.trim() + "]");
     }
 
-    // หาอีเมลผู้ยืมจาก transaction หรือ Users แล้วส่งเมลแจ้งปฏิเสธ
     let borrowerEmail = String(transSheet.getRange(foundTransRow, 4).getValue() || "").trim();
     if (!borrowerEmail && borrowerIdentifier) {
-      borrowerEmail = getUserEmail(borrowerIdentifier) || "";
+      borrowerEmail = findUserEmailByIdentifier(borrowerIdentifier) || getUserEmail(borrowerIdentifier) || "";
     }
 
+    Logger.log("rejectSingleBorrowRequest debug -> transId:%s, itemId:%s, borrowerIdentifier:%s, resolvedEmail:%s", transId, itemId, borrowerIdentifier, borrowerEmail);
+
     try {
-      if (borrowerEmail) {
+      if (borrowerEmail && borrowerEmail.indexOf('@') !== -1) {
         const subject = `แจ้งผลการขอยืมพัสดุ ${itemId} - ไม่อนุมัติ`;
         const htmlBody = `<p>คำขอ ${itemId} ถูกปฏิเสธ</p><p>เหตุผล: ${reason || 'ไม่ระบุ'}</p>`;
         GmailApp.sendEmail(borrowerEmail, subject, "", { htmlBody: htmlBody, replyTo: SYSTEM_EMAIL, name: "CPE Smart Asset Management" });
-        Logger.log("Rejection email sent to: " + borrowerEmail + " for trans " + transId);
+        Logger.log("Rejection email sent -> to:%s trans:%s", borrowerEmail, transId);
       } else {
-        Logger.log("No borrower email found for trans " + transId + " (cannot send rejection email)");
+        Logger.log("rejectSingleBorrowRequest: no borrower email resolved for trans %s (identifier: %s)", transId, borrowerIdentifier);
+        try { GmailApp.sendEmail(ADMIN_EMAIL_DEFAULT, `⚠️ ขาดอีเมลผู้ยืม: ${transId}`, `ไม่พบอีเมลสำหรับ transaction ${transId} (identifier: ${borrowerIdentifier}).`); }
+        catch(eAdmin) { Logger.log("Notify admin failed: " + eAdmin.toString()); }
       }
     } catch (mailErr) {
-      Logger.log("Warning: sendRejectionEmail failed: " + mailErr.toString());
+      Logger.log("rejectSingleBorrowRequest: Gmail send error for trans %s -> %s", transId, mailErr.toString());
+      try { GmailApp.sendEmail(ADMIN_EMAIL_DEFAULT, `⚠️ Email send error for ${transId}`, `Error: ${mailErr.toString()}\nResolvedEmail: ${borrowerEmail}\nItem: ${itemId}`); }
+      catch(e2) { Logger.log("Failed to notify admin about mail error: " + e2.toString()); }
     }
 
-    // ส่งสรุปเมลเมื่อครบทุกชิ้นในตะกร้า
     try { checkAndSendSummaryEmailToUser(transId); } catch(e){ Logger.log("checkAndSendSummaryEmailToUser err: " + e); }
 
     return { success: true, message: "❌ ปฏิเสธคำขอยืมพัสดุชิ้นนี้เรียบร้อยแล้ว" };
