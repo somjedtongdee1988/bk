@@ -18,5 +18,5 @@ jobs:
       - name: Push to GAS
         run: clasp push -f
       - name: Deploy to GAS
-        run: clasp deploy -d "Auto-deploy from GitHub"
+        run: clasp deploy -i "AKfycbzCyYJ0zV7_wQTxJLJlYUf5_HGpHidLGJ-VsL86vRU76L5YREra1cY6fdZBiniLU0iYOA" -d "Update code"
         
