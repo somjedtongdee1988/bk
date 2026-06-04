@@ -947,11 +947,15 @@ function borrowCartItems(cartItems, borrowerName, borrowerEmail, borrowDateStr, 
       if (idx === undefined || parseInt(itemValues[idx][3]) < item.qty) return { success: false, message: `❌ พัสดุ ${item.id} ไม่พอให้ยืม` };
     }
 
+    // ถ้า borrowerEmail ว่าง ให้พยายาม resolve จาก Users
+    borrowerEmail = (borrowerEmail && String(borrowerEmail).trim()) ? String(borrowerEmail).trim() : (findUserEmailByIdentifier(borrowerName) || getUserEmail(borrowerName) || "");
+
     const newTrans = [];
     let itemDetailsHtml = "";
 
     for (let item of cartItems) {
       itemDetailsHtml += `<li>รหัสพัสดุ: ${item.id} | ชื่อพัสดุ: ${item.name} | จำนวน: ${item.qty} ชิ้น</li>`;
+      // trans columns: transId, itemID, borrowerName, borrowerEmail, borrowDate, dueDate, returnDate, status, purpose, qty
       newTrans.push([transId, item.id, borrowerName, borrowerEmail, bDate, dDate, "", "รออนุมัติ", purpose, item.qty]);
     }
 
@@ -985,22 +989,42 @@ function borrowCartItems(cartItems, borrowerName, borrowerEmail, borrowDateStr, 
 function findUserEmailByIdentifier(identifier) {
   try {
     if (!identifier) return null;
-    const id = String(identifier).trim().toLowerCase();
+    const idRaw = String(identifier).trim();
+    Logger.log("findUserEmailByIdentifier: resolving -> " + idRaw);
     const usersRes = _readSheetAll('Users');
     const users = usersRes.values || [];
+
+    const norm = s => (String(s||'').trim().toLowerCase().replace(/\s+/g,' ')).replace(/[^\u0E00-\u0E7F0-9a-z\s]/g, '');
+    const idNorm = norm(idRaw);
+    const idNoSpace = idNorm.replace(/\s+/g,'');
+
     for (let r = 1; r < users.length; r++) {
       const row = users[r] || [];
-      const username = String(row[0] || '').trim().toLowerCase();
-      const fullName = String(row[3] || '').trim().toLowerCase();
+      const username = String(row[0] || '').trim();
+      const fullName = String(row[3] || '').trim();
       const email = String(row[4] || '').trim();
       if (!email) continue;
-      if (username === id || fullName === id) return email;
+      const uNorm = norm(username);
+      const fNorm = norm(fullName);
+
+      if (uNorm === idNorm || fNorm === idNorm) {
+        Logger.log("findUserEmailByIdentifier: exact match -> " + email + " (row " + (r+1) + ")");
+        return email;
+      }
+      if (uNorm && uNorm.indexOf(idNorm) !== -1) { Logger.log("findUserEmailByIdentifier: username includes -> " + email); return email; }
+      if (fNorm && fNorm.indexOf(idNorm) !== -1) { Logger.log("findUserEmailByIdentifier: fullname includes -> " + email); return email; }
+      if (uNorm.replace(/\s+/g,'') === idNoSpace) { Logger.log("findUserEmailByIdentifier: username no-space match -> " + email); return email; }
+      if (fNorm.replace(/\s+/g,'') === idNoSpace) { Logger.log("findUserEmailByIdentifier: fullname no-space match -> " + email); return email; }
+      if (email.toLowerCase() === idNorm) { Logger.log("findUserEmailByIdentifier: identifier is email -> " + email); return email; }
     }
+
+    Logger.log("findUserEmailByIdentifier: no match for -> " + idRaw);
   } catch (e) {
     Logger.log("findUserEmailByIdentifier error: " + e.toString());
   }
   return null;
 }
+
 
 /* แทนที่ส่วนหา/ส่งอีเมลใน approveSingleBorrowRequest ด้วยโค้ดนี้ */
 function approveSingleBorrowRequest(transId, itemId) {
@@ -1028,7 +1052,7 @@ function approveSingleBorrowRequest(transId, itemId) {
 
     if (foundTransRow === -1) return { success: false, message: "❌ ไม่พบรายการคำขอยืมรออนุมัติที่ตรงกัน" };
 
-    // ลดสต็อก (เหมือนเดิม)
+    // ลดสต็อก
     let foundItemRow = -1;
     let currentStock = 0;
     for (let i = 1; i < itemData.length; i++) {
@@ -1134,7 +1158,7 @@ function rejectSingleBorrowRequest(transId, itemId, reason) {
       try { GmailApp.sendEmail(ADMIN_EMAIL_DEFAULT, `⚠️ Email send error for ${transId}`, `Error: ${mailErr.toString()}\nResolvedEmail: ${borrowerEmail}\nItem: ${itemId}`); }
       catch(e2) { Logger.log("Failed to notify admin about mail error: " + e2.toString()); }
     }
-    
+
     try { checkAndSendSummaryEmailToUser(transId); } catch(e){ Logger.log("checkAndSendSummaryEmailToUser err: " + e); }
 
     return { success: true, message: "❌ ปฏิเสธคำขอยืมพัสดุชิ้นนี้เรียบร้อยแล้ว" };
@@ -1201,18 +1225,4 @@ function _resolveBorrowerEmail(txDataRow) {
     Logger.log("resolveBorrowerEmail error: " + e.toString());
   }
   return null;
-}
-
-function testSendApprovalToBorrower() {
-  const testEmail = "somjedtongdee@gmail.com";
-  const subject = "Test: ผลการอนุมัติ (ทดสอบระบบอีเมล)";
-  const htmlBody = "<p>นี่คือการทดสอบการส่งอีเมลจากระบบ CPE Smart Asset Management</p><p>หากได้รับเมลนี้ แสดงว่าการส่งสำเร็จ</p>";
-  try {
-    GmailApp.sendEmail(testEmail, subject, "", { htmlBody: htmlBody, replyTo: SYSTEM_EMAIL, name: "CPE Smart Asset Management" });
-    Logger.log("testSendApprovalToBorrower: sent to " + testEmail);
-    return { success: true, message: "ส่งแล้วถึง " + testEmail };
-  } catch (e) {
-    Logger.log("testSendApprovalToBorrower error: " + e.toString());
-    return { success: false, message: e.toString() };
-  }
 }
