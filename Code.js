@@ -1168,3 +1168,17 @@ function _resolveBorrowerEmail(txDataRow) {
   }
   return null;
 }
+
+function testSendApprovalToBorrower() {
+  const testEmail = "somjedtongdee@gmail.com";
+  const subject = "Test: ผลการอนุมัติ (ทดสอบระบบอีเมล)";
+  const htmlBody = "<p>นี่คือการทดสอบการส่งอีเมลจากระบบ CPE Smart Asset Management</p><p>หากได้รับเมลนี้ แสดงว่าการส่งสำเร็จ</p>";
+  try {
+    GmailApp.sendEmail(testEmail, subject, "", { htmlBody: htmlBody, replyTo: SYSTEM_EMAIL, name: "CPE Smart Asset Management" });
+    Logger.log("testSendApprovalToBorrower: sent to " + testEmail);
+    return { success: true, message: "ส่งแล้วถึง " + testEmail };
+  } catch (e) {
+    Logger.log("testSendApprovalToBorrower error: " + e.toString());
+    return { success: false, message: e.toString() };
+  }
+}
