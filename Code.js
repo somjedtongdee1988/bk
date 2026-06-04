@@ -499,21 +499,19 @@ function getUserLoanHistory(username, role, page, pageSize, full) {
       }
     }
 
-    // ถ้าขอ full ให้ยังต้องคำนวณ total จากการอ่านทั้งชีต — แต่ถ้าไม่ได้ขอ full และเราอ่านไม่ครบทั้งชีต,
-    // จะส่ง hasMore=true ถ้าอาจมีรายการเพิ่มเติมในส่วนที่ยังไม่ได้อ่าน
+    // คำนวน totalMatches และ hasMore ให้ครอบคลุมกรณีที่อ่านทั้งชีตแล้วด้วย
     let totalMatches = matchedIndices.length;
     let hasMore = false;
     if (!full) {
-      // ถ้าเรอ่านไม่ใช่ทั้งชีต และ matchedIndices มาถึง neededCount แสดงว่าน่าจะมีเพิ่มเติม
-      if (readStartRow > 1 && matchedIndices.length >= neededCount) {
-        hasMore = true;
+      if (readStartRow > 1) {
+        // อ่านเฉพาะหน้าต่างท้าย: ถ้าได้ครบ neededCount มีความเป็นไปได้ว่ามีเพิ่ม
+        hasMore = matchedIndices.length >= neededCount;
       } else {
-        // ถ้า readStartRow === 1 แสดงว่าอ่านทั้งชีตแล้ว => totalMatches ถูกต้อง
-        hasMore = false;
+        // อ่านทั้งชีตแล้ว: ถ้าจำนวนรายการมากกว่า pageSize ให้แสดงปุ่ม "ดูเพิ่มเติมทั้งหมด"
+        hasMore = matchedIndices.length > pageSize;
       }
     } else {
-      // full = true: เพื่อให้ total ถูกต้อง เรำต้องสแกนทั้งชีต -> matchedIndices คือตำแหน่งใน transData (เต็ม)
-      totalMatches = matchedIndices.length;
+      // full = true -> โหลดทั้งหมดแล้ว ไม่มี more
       hasMore = false;
     }
 
@@ -549,13 +547,15 @@ function getUserLoanHistory(username, role, page, pageSize, full) {
       });
     }
 
-    // ถ้าไม่ได้อ่านทั้งชีตแต่ต้องการ total ที่แท้จริง ควรเรียกด้วย full=true จาก UI
     const isGlobalView = (userRole === "ADMIN" || userRole === "SUPER_ADMIN");
-    return { success: true, history: historyList, total: full ? totalMatches : null, page: page, pageSize: pageSize, isGlobalView: isGlobalView, hasMore: hasMore };
+    // ส่ง total กลับเมื่ออ่านทั้งชีตจริง ๆ หรือเมื่อ full=true
+    const totalToReturn = (readStartRow === 1 || full) ? totalMatches : null;
+    return { success: true, history: historyList, total: totalToReturn, page: page, pageSize: pageSize, isGlobalView: isGlobalView, hasMore: hasMore };
   } catch (e) {
     return { success: false, message: e.toString() };
   }
 }
+
 /* เพิ่ม helper functions เพื่อประสิทธิภาพ I/O และ cache */
 function _openSS() {
   return SpreadsheetApp.openById(SPREADSHEET_ID);
