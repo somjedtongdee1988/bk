@@ -176,6 +176,28 @@ function checkAndSendSummaryEmailToUser(transId) {
   }
 }
 
+function _findTransactionById(transId) {
+  try {
+    const ss = _openSS();
+    const sh = ss.getSheetByName('Transactions');
+    if (!sh) return null;
+    const lastRow = sh.getLastRow();
+    const lastCol = Math.max(1, sh.getLastColumn());
+    if (lastRow < 2) return null;
+    const headers = sh.getRange(1, 1, 1, lastCol).getValues()[0];
+    const vals = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
+    for (let i = 0; i < vals.length; i++) {
+      if (String(vals[i][0]) === String(transId)) {
+        const obj = {};
+        for (let c = 0; c < headers.length; c++) obj[headers[c]] = vals[i][c];
+        return { sheet: sh, row: i + 2, data: obj, headers: headers };
+      }
+    }
+  } catch (e) {
+    Logger.log("_findTransactionById error: " + e.toString());
+  }
+  return null;
+}
 /**
  * ส่งอีเมลแจ้งผู้ยืมเมื่ออนุมัติ
  */
@@ -663,25 +685,6 @@ function _formatDateSafe(raw, tz, fmt) {
   if (!raw) return "-";
   const d = raw instanceof Date ? raw : new Date(raw);
   try { return Utilities.formatDate(d, tz, fmt); } catch (e) { return d.toLocaleString(); }
-}
-
-/* ปรับปรุง getUserEmail ให้อ่านเฉพาะแถวที่มีข้อมูลจริง */
-function getUserEmail(username) {
-  try {
-    if (!username) return null;
-    const res = _readSheetAll('Users');
-    const data = res.values || [];
-    const target = username.toString().trim().toLowerCase();
-    for (let i = 1; i < data.length; i++) {
-      if (!data[i] || !data[i][0]) continue;
-      if (String(data[i][0]).trim().toLowerCase() === target) {
-        return data[i][4] || null;
-      }
-    }
-  } catch (error) {
-    Logger.log("Error ในการค้นหาอีเมล: " + error.toString());
-  }
-  return null;
 }
 
 /* ปรับปรุง getDashboardData ให้อ่านเฉพาะแถวจริงและลดการประมวลผลซ้ำ */
