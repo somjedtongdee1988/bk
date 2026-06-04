@@ -350,8 +350,11 @@
 /* เพิ่ม helper สำหรับเรนเดอร์รายการประวัติ (reuse) */
 function _renderHistoryRows(tbody, adminApprovalTbody, rows, activeRole) {
   if(!tbody) return;
-  let approvalCountForBadge = 0;
+  // เคลียร์ทั้งตารางหลักและตารางอนุมัติก่อนเริ่มเรนเดอร์ (ป้องกันซ้ำ)
   tbody.innerHTML = "";
+  if (adminApprovalTbody) adminApprovalTbody.innerHTML = "";
+
+  let approvalCountForBadge = 0;
   rows.forEach(function(row) {
     let badge = "";
     if (row.status === "รออนุมัติ") {
@@ -424,68 +427,90 @@ function _renderHistoryRows(tbody, adminApprovalTbody, rows, activeRole) {
 
 /* แก้ไข loadUserHistoryData ให้เรนเดอร์ 5 รายการแรก และแสดงปุ่ม "ดูเพิ่มเติมทั้งหมด" เมื่อจำเป็น */
 function loadUserHistoryData() {
-  // รองรับทั้งกรณีตัวแปรถูกประกาศแบบ global หรือเป็น property ของ window
   const activeEmail = (typeof CURRENT_USER_EMAIL !== "undefined" ? CURRENT_USER_EMAIL : (window && window.CURRENT_USER_EMAIL)) || "";
   const activeRole = (typeof CURRENT_USER_ROLE !== "undefined" ? CURRENT_USER_ROLE : (window && window.CURRENT_USER_ROLE)) || "USER";
 
   const tbody = document.getElementById("user-history-tbody");
   const moreRow = document.getElementById("user-history-more-row");
   const moreBtn = document.getElementById("load-more-history-btn");
+  const adminApprovalTbody = document.getElementById("admin-approval-tbody");
+
   if (!tbody) return;
   if (moreRow) moreRow.classList.add("hidden");
+  if (adminApprovalTbody) adminApprovalTbody.innerHTML = ""; // เคลียร์ก่อนเรียก
 
   if (!activeEmail) {
     tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400 bg-gray-50/50">โปรดล็อกอินเพื่อดูข้อมูล</td></tr>`;
     return;
   }
 
-  google.script.run.withSuccessHandler(function(res) {
-    console.log("getUserLoanHistory res:", res);
-    if (!res || !res.success) {
-      tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400 bg-gray-50/50">เกิดข้อผิดพลาดในการโหลดข้อมูล</td></tr>`;
-      if (moreRow) moreRow.classList.add("hidden");
-      return;
+  // timeout fallback: ถ้าไม่มี response ภายใน 10s ให้ยกเลิกข้อความโหลด
+  let timeoutId = setTimeout(function() {
+    console.warn("getUserLoanHistory timed out.");
+    if (tbody && tbody.innerHTML.trim() === "") {
+      tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400 bg-gray-50/50">ไม่สามารถเรียกข้อมูลได้ กรุณาลองใหม่</td></tr>`;
     }
+    if (moreRow) moreRow.classList.add("hidden");
+  }, 10000);
 
-    const adminApprovalTbody = document.getElementById("admin-approval-tbody");
-    const rows = Array.isArray(res.history) ? res.history : [];
-
-    if (rows.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400 bg-gray-50/50">📝 ไม่พบประวัติ</td></tr>`;
-      if (moreRow) moreRow.classList.add("hidden");
-      return;
-    }
-
-    _renderHistoryRows(tbody, adminApprovalTbody, rows, activeRole);
-
-    const PAGE_SIZE = 5;
-    const hasMoreFlag = (typeof res.hasMore !== "undefined") ? !!res.hasMore : undefined;
-    const totalFromServer = (typeof res.total === "number") ? res.total : null;
-    const shouldShowMore = (hasMoreFlag === true)
-                        || (totalFromServer !== null && totalFromServer > rows.length)
-                        || (typeof hasMoreFlag === "undefined" && rows.length >= PAGE_SIZE);
-
-    if (shouldShowMore) {
-      if (moreRow) moreRow.classList.remove("hidden");
-      if (moreBtn) {
-        moreBtn.disabled = false;
-        moreBtn.onclick = function () {
-          moreBtn.disabled = true;
-          google.script.run.withSuccessHandler(function(resAll) {
-            moreBtn.disabled = false;
-            if (!resAll || !resAll.success || !Array.isArray(resAll.history)) {
-              showToast("ไม่สามารถโหลดข้อมูลเพิ่มเติมได้", "error");
-              return;
-            }
-            _renderHistoryRows(tbody, adminApprovalTbody, resAll.history, activeRole);
-            if (moreRow) moreRow.classList.add("hidden");
-          }).getUserLoanHistory(activeEmail, activeRole, 1, 1000000, true);
-        };
+  google.script.run
+    .withSuccessHandler(function(res) {
+      clearTimeout(timeoutId);
+      console.log("getUserLoanHistory res:", res);
+      if (!res || !res.success) {
+        tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400 bg-gray-50/50">เกิดข้อผิดพลาดในการโหลดข้อมูล</td></tr>`;
+        if (moreRow) moreRow.classList.add("hidden");
+        return;
       }
-    } else {
+      const rows = Array.isArray(res.history) ? res.history : [];
+      if (rows.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400 bg-gray-50/50">📝 ไม่พบประวัติ</td></tr>`;
+        if (moreRow) moreRow.classList.add("hidden");
+        if (adminApprovalTbody) adminApprovalTbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400 bg-gray-50/50">🎉 ไม่มีคำขอยืมรออนุมัติ</td></tr>`;
+        return;
+      }
+
+      _renderHistoryRows(tbody, adminApprovalTbody, rows, activeRole);
+
+      const PAGE_SIZE = 5;
+      const hasMoreFlag = (typeof res.hasMore !== "undefined") ? !!res.hasMore : undefined;
+      const totalFromServer = (typeof res.total === "number") ? res.total : null;
+      const shouldShowMore = (hasMoreFlag === true)
+                          || (totalFromServer !== null && totalFromServer > rows.length)
+                          || (typeof hasMoreFlag === "undefined" && rows.length >= PAGE_SIZE);
+
+      if (shouldShowMore) {
+        if (moreRow) moreRow.classList.remove("hidden");
+        if (moreBtn) {
+          moreBtn.disabled = false;
+          moreBtn.onclick = function () {
+            moreBtn.disabled = true;
+            google.script.run.withSuccessHandler(function(resAll) {
+              moreBtn.disabled = false;
+              if (!resAll || !resAll.success || !Array.isArray(resAll.history)) {
+                showToast("ไม่สามารถโหลดข้อมูลเพิ่มเติมได้", "error");
+                return;
+              }
+              _renderHistoryRows(tbody, adminApprovalTbody, resAll.history, activeRole);
+              if (moreRow) moreRow.classList.add("hidden");
+            }).withFailureHandler(function(err) {
+              moreBtn.disabled = false;
+              showToast("ไม่สามารถโหลดข้อมูลเพิ่มเติมได้", "error");
+            }).getUserLoanHistory(activeEmail, activeRole, 1, 1000000, true);
+          };
+        }
+      } else {
+        if (moreRow) moreRow.classList.add("hidden");
+      }
+    })
+    .withFailureHandler(function(err) {
+      clearTimeout(timeoutId);
+      console.error("getUserLoanHistory failed:", err);
+      tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400 bg-gray-50/50">ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้</td></tr>`;
       if (moreRow) moreRow.classList.add("hidden");
-    }
-  }).getUserLoanHistory(activeEmail, activeRole, 1, 5, false);
+      if (adminApprovalTbody) adminApprovalTbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400 bg-gray-50/50">ไม่สามารถโหลดคำขออนุมัติได้</td></tr>`;
+    })
+    .getUserLoanHistory(activeEmail, activeRole, 1, 5, false);
 }
 
 function loadMoreUserHistory(total) {
