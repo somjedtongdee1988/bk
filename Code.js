@@ -192,6 +192,66 @@ function checkAndSendSummaryEmailToUser(transId) {
     Logger.log("Error ในการจัดส่งอีเมลสรุปผลรวมหาผู้ยืม: " + e.toString());
   }
 }
+
+/**
+ * ส่งอีเมลแจ้งผู้ยืมเมื่ออนุมัติ
+ */
+function sendApprovalEmail(transId) {
+  try {
+    const tx = _findTransactionById(transId);
+    if (!tx) return false;
+    const d = tx.data;
+    const borrowerEmail = d['borrowerEmail'] || d['email'] || d['ผู้ยืมอีเมล'] || d['ผู้ยืม'] || "";
+    if (!borrowerEmail) return false;
+    const itemId = d['itemId'] || d['รหัสพัสดุ'] || "";
+    const itemName = d['itemName'] || d['ชื่อพัสดุ'] || "";
+    const borrowDate = d['borrowDate'] || d['วันที่ยืม'] || "";
+    const dueDate = d['dueDate'] || d['กำหนดคืน'] || "";
+
+    const subject = `แจ้งผลการอนุมัติคำขอยืมพัสดุ ${itemId}`;
+    const htmlBody = `<p>เรียนผู้ใช้</p>
+      <p>คำขอการยืมพัสดุ <strong>${itemId} ${itemName}</strong> ได้รับการอนุมัติแล้ว</p>
+      <ul>
+        <li>วันที่ยืม: ${borrowDate}</li>
+        <li>กำหนดคืน: ${dueDate}</li>
+      </ul>
+      <p>ขอบคุณครับ/ค่ะ</p>`;
+
+    MailApp.sendEmail({ to: borrowerEmail, subject: subject, htmlBody: htmlBody });
+    return true;
+  } catch (e) {
+    console.error('sendApprovalEmail error', e);
+    return false;
+  }
+}
+
+/**
+ * ส่งอีเมลแจ้งผู้ยืมเมื่อปฏิเสธ พร้อมเหตุผล
+ */
+function sendRejectionEmail(transId, reason) {
+  try {
+    const tx = _findTransactionById(transId);
+    if (!tx) return false;
+    const d = tx.data;
+    const borrowerEmail = d['borrowerEmail'] || d['email'] || d['ผู้ยืมอีเมล'] || d['ผู้ยืม'] || "";
+    if (!borrowerEmail) return false;
+    const itemId = d['itemId'] || d['รหัสพัสดุ'] || "";
+    const itemName = d['itemName'] || d['ชื่อพัสดุ'] || "";
+
+    const subject = `แจ้งผลการขอยืมพัสดุ ${itemId} - ไม่อนุมัติ`;
+    const htmlBody = `<p>เรียนผู้ใช้</p>
+      <p>คำขอการยืมพัสดุ <strong>${itemId} ${itemName}</strong> ถูกปฏิเสธ</p>
+      <p><strong>เหตุผล:</strong> ${reason || 'ไม่ระบุ'}</p>
+      <p>หากต้องการข้อมูลเพิ่มเติม กรุณาติดต่อเจ้าหน้าที่</p>`;
+
+    MailApp.sendEmail({ to: borrowerEmail, subject: subject, htmlBody: htmlBody });
+    return true;
+  } catch (e) {
+    console.error('sendRejectionEmail error', e);
+    return false;
+  }
+}
+
 /**
  * ส่งอีเมลแจ้งเตือนผู้ใช้งานเมื่อคำขอยืมได้รับการ อนุมัติ หรือ ปฏิเสธ
  * @param {string} username - ชื่อผู้ขอยืม
@@ -224,6 +284,25 @@ function sendApprovalEmailToUser(username, itemCode, itemName, status) {
     noteText = "หากมีข้อสงสัยประการใด กรุณาติดต่อผู้ดูแลระบบหรือเจ้าหน้าที่ประจำห้องปฏิบัติการ";
   }
   
+function _findTransactionById(transId) {
+  const ss = SpreadsheetApp.getActive();
+  const sh = ss.getSheetByName('Transactions');
+  if (!sh) return null;
+  const lastRow = sh.getLastRow();
+  const lastCol = sh.getLastColumn();
+  if (lastRow < 2) return null;
+  const headers = sh.getRange(1, 1, 1, lastCol).getValues()[0];
+  const vals = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  for (let i = 0; i < vals.length; i++) {
+    if (String(vals[i][0]) === String(transId)) { // assume transId in col A
+      const obj = {};
+      for (let c = 0; c < headers.length; c++) obj[headers[c]] = vals[i][c];
+      return { sheet: sh, row: i + 2, data: obj, headers: headers };
+    }
+  }
+  return null;
+}
+
   // สร้างเนื้อหาอีเมลแบบ HTML ให้สวยงามและเป็นทางการ
   var htmlBody = `
     <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 20px; color: #333; max-width: 600px; border: 1px solid #e0e0e0; border-radius: 5px;">
