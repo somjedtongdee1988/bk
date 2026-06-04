@@ -423,40 +423,59 @@ function _renderHistoryRows(tbody, adminApprovalTbody, rows, activeRole) {
 
 /* แก้ไข loadUserHistoryData ให้เรนเดอร์ 5 รายการแรก และแสดงปุ่ม "ดูเพิ่มเติมทั้งหมด" เมื่อจำเป็น */
 function loadUserHistoryData() {
-  // ...existing code...
+  const activeEmail = window.CURRENT_USER_EMAIL || "";
+  const activeRole = window.CURRENT_USER_ROLE || "USER";
+  const tbody = document.getElementById("user-history-tbody");
+  const moreRow = document.getElementById("user-history-more-row");
+  const moreBtn = document.getElementById("load-more-history-btn");
+  if (!tbody) return;
+  if (moreRow) moreRow.classList.add("hidden");
+
+  if (!activeEmail) {
+    tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400 bg-gray-50/50">โปรดล็อกอินเพื่อดูข้อมูล</td></tr>`;
+    return;
+  }
+
+  // เรียกแค่ 5 รายการ (fast mode)
   google.script.run.withSuccessHandler(function(res) {
-    console.log("getUserLoanHistory res:", res); // debug
-    if (!res.success || !res.history) {
-      tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400 bg-gray-50/50">📝 ไม่พบประวัติ</td></tr>`;
+    console.log("getUserLoanHistory res:", res);
+    if (!res || !res.success) {
+      tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400 bg-gray-50/50">เกิดข้อผิดพลาดในการโหลดข้อมูล</td></tr>`;
       if (moreRow) moreRow.classList.add("hidden");
       return;
     }
 
     const adminApprovalTbody = document.getElementById("admin-approval-tbody");
-    _renderHistoryRows(tbody, adminApprovalTbody, res.history, activeRole);
+    const rows = Array.isArray(res.history) ? res.history : [];
 
-    // --- เปลี่ยน logic การแสดงปุ่มที่นี่ ---
-    const PAGE_SIZE = 5; // ต้องตรงกับค่าที่เรียกจากเซิร์ฟเวอร์
-    const hasMoreFlag = typeof res.hasMore !== 'undefined' ? !!res.hasMore : undefined;
-    const totalFromServer = (typeof res.total === 'number') ? res.total : null;
+    if (rows.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400 bg-gray-50/50">📝 ไม่พบประวัติ</td></tr>`;
+      if (moreRow) moreRow.classList.add("hidden");
+      return;
+    }
 
-    // กรณีควรแสดงปุ่ม:
-    // 1) เซิร์ฟเวอร์ส่ง hasMore = true
-    // 2) เซิร์ฟเวอร์ส่ง total และ total > จำนวนแถวที่ส่งกลับ
-    // 3) เซิร์ฟเวอร์ไม่ส่ง hasMore แต่เราได้จำนวนเท่ากับ pageSize (น่าจะมีเพิ่ม)
+    _renderHistoryRows(tbody, adminApprovalTbody, rows, activeRole);
+
+    // ตรวจสอบเงื่อนไขการแสดงปุ่ม (หลายกรณี)
+    const PAGE_SIZE = 5;
+    const hasMoreFlag = (typeof res.hasMore !== "undefined") ? !!res.hasMore : undefined;
+    const totalFromServer = (typeof res.total === "number") ? res.total : null;
     const shouldShowMore = (hasMoreFlag === true)
-                         || (totalFromServer !== null && totalFromServer > (res.history ? res.history.length : 0))
-                         || (typeof hasMoreFlag === 'undefined' && res.history && res.history.length >= PAGE_SIZE);
+                        || (totalFromServer !== null && totalFromServer > rows.length)
+                        || (typeof hasMoreFlag === "undefined" && rows.length >= PAGE_SIZE);
 
     if (shouldShowMore) {
       if (moreRow) moreRow.classList.remove("hidden");
       if (moreBtn) {
+        moreBtn.disabled = false;
         moreBtn.onclick = function () {
-          // โหลดทั้งหมดครั้งเดียว (full=true)
           moreBtn.disabled = true;
           google.script.run.withSuccessHandler(function(resAll) {
             moreBtn.disabled = false;
-            if (!resAll.success || !resAll.history) { showToast("ไม่สามารถโหลดข้อมูลเพิ่มเติมได้", "error"); return; }
+            if (!resAll || !resAll.success || !Array.isArray(resAll.history)) {
+              showToast("ไม่สามารถโหลดข้อมูลเพิ่มเติมได้", "error");
+              return;
+            }
             _renderHistoryRows(tbody, adminApprovalTbody, resAll.history, activeRole);
             if (moreRow) moreRow.classList.add("hidden");
           }).getUserLoanHistory(activeEmail, activeRole, 1, 1000000, true);
