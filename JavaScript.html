@@ -427,7 +427,7 @@ function _renderHistoryRows(tbody, adminApprovalTbody, rows, activeRole) {
 
 /* แก้ไข loadUserHistoryData ให้เรนเดอร์ 5 รายการแรก และแสดงปุ่ม "ดูเพิ่มเติมทั้งหมด" เมื่อจำเป็น */
 function loadUserHistoryData() {
-  const PAGE_SIZE = 5; // กำหนดที่นี่ก่อนเรียก google.script.run เพื่อป้องกัน ReferenceError
+  const PAGE_SIZE = 5;
   const activeEmail = (typeof CURRENT_USER_EMAIL !== "undefined" ? CURRENT_USER_EMAIL : (window && window.CURRENT_USER_EMAIL)) || "";
   const activeRole = (typeof CURRENT_USER_ROLE !== "undefined" ? CURRENT_USER_ROLE : (window && window.CURRENT_USER_ROLE)) || "USER";
 
@@ -438,14 +438,13 @@ function loadUserHistoryData() {
 
   if (!tbody) return;
   if (moreRow) moreRow.classList.add("hidden");
-  if (adminApprovalTbody) adminApprovalTbody.innerHTML = ""; // เคลียร์ก่อนเรียก
+  if (adminApprovalTbody) adminApprovalTbody.innerHTML = "";
 
   if (!activeEmail) {
     tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400 bg-gray-50/50">โปรดล็อกอินเพื่อดูข้อมูล</td></tr>`;
     return;
   }
 
-  // timeout fallback: ถ้าไม่มี response ภายใน 10s ให้ยกเลิกข้อความโหลด
   let timeoutId = setTimeout(function() {
     console.warn("getUserLoanHistory timed out.");
     if (tbody && tbody.innerHTML.trim() === "") {
@@ -471,7 +470,7 @@ function loadUserHistoryData() {
         return;
       }
 
-      // แสดงเฉพาะ PAGE_SIZE แรกบนตาราง (UI ต้องการ 5 รายการเริ่มต้น)
+      // แสดงเฉพาะ PAGE_SIZE แรก
       const initialRows = rows.slice(0, PAGE_SIZE);
       _renderHistoryRows(tbody, adminApprovalTbody, initialRows, activeRole);
 
@@ -481,21 +480,47 @@ function loadUserHistoryData() {
                           || (totalFromServer !== null && totalFromServer > rows.length)
                           || (typeof hasMoreFlag === "undefined" && rows.length >= PAGE_SIZE);
 
+      const totalToRequest = (totalFromServer !== null) ? totalFromServer : Math.max(rows.length, PAGE_SIZE);
+
       if (shouldShowMore) {
-        if (moreRow) moreRow.classList.remove("hidden");
-        if (moreBtn) {
-          // ป้องกันการผูกหลายครั้ง
-          moreBtn.onclick = null;
-          moreBtn.disabled = false;
-          // ส่ง total จากเซิร์ฟเวอร์ (fallback เป็นจำนวนที่โหลดมาครั้งแรก)
-          const totalToRequest = (totalFromServer !== null) ? totalFromServer : Math.max(rows.length, PAGE_SIZE);
-          moreBtn.onclick = function () {
-            moreBtn.disabled = true;
-            loadMoreUserHistory(totalToRequest);
-          };
+        // ถ้ามี tfoot/moreRow ใช้มัน
+        if (moreRow) {
+          moreRow.classList.remove("hidden");
+          if (moreBtn) {
+            moreBtn.onclick = null;
+            moreBtn.disabled = false;
+            moreBtn.onclick = function () {
+              moreBtn.disabled = true;
+              loadMoreUserHistory(totalToRequest);
+            };
+          }
+        } else {
+          // fallback: สร้างปุ่มใต้ตารางถ้า tfoot หาย/invalid
+          const table = tbody.closest('table') || document.getElementById('user-history-table');
+          if (table) {
+            let fallback = document.getElementById('user-history-more-row-fallback');
+            if (!fallback) {
+              fallback = document.createElement('div');
+              fallback.id = 'user-history-more-row-fallback';
+              fallback.style.padding = '0.75rem';
+              fallback.style.textAlign = 'center';
+              fallback.innerHTML = `<button id="load-more-history-btn-fallback" class="px-4 py-2 bg-slate-900 text-amber-400 rounded-lg font-bold">🔎 ดูเพิ่มเติมทั้งหมด</button>`;
+              table.parentNode.insertBefore(fallback, table.nextSibling);
+            }
+            const fbBtn = document.getElementById('load-more-history-btn-fallback');
+            if (fbBtn) {
+              fbBtn.disabled = false;
+              fbBtn.onclick = function() {
+                fbBtn.disabled = true;
+                loadMoreUserHistory(totalToRequest);
+              };
+            }
+          }
         }
       } else {
         if (moreRow) moreRow.classList.add("hidden");
+        const fb = document.getElementById('user-history-more-row-fallback');
+        if (fb) fb.remove();
       }
     })
     .withFailureHandler(function(err) {
