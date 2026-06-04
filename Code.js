@@ -453,101 +453,109 @@ function updateProfileData(username, fullName, email, phone, position, idCode, m
   }
 }
 
-// ...existing code...
-function getUserLoanHistory(username, role, page, pageSize) {
+
+function getUserLoanHistory(username, role, page, pageSize, full) {
   try {
-    // ตั้งค่า pagination ค่าเริ่มต้น
     page = parseInt(page, 10) || 1;
-    pageSize = parseInt(pageSize, 10) || 50;
+    pageSize = parseInt(pageSize, 10) || 5; // UI ต้องการ 5 รายการเริ่มต้น
+    full = !!full; // ถ้า true -> อ่านทั้งชีต
     const neededCount = page * pageSize;
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const transSheet = ss.getSheetByName("Transactions");
-    const itemSheet = ss.getSheetByName("Items");
+    const itemMap = _getItemMapCached(300);
 
-    // อ่านเฉพาะช่วงแถวที่มีข้อมูลจริง (ลดการอ่านทั้งชีตเมื่อไฟล์ใหญ่)
-    const lastTransRow = Math.max(1, transSheet.getLastRow());
+    if (!transSheet) return { success: true, history: [], total: 0, page, pageSize, isGlobalView: false, hasMore: false };
+
+    const lastTransRow = transSheet.getLastRow();
     const lastTransCol = Math.max(1, transSheet.getLastColumn());
-    const transData = lastTransRow >= 1 ? transSheet.getRange(1, 1, lastTransRow, lastTransCol).getValues() : [];
+    if (lastTransRow <= 1) return { success: true, history: [], total: 0, page, pageSize, isGlobalView: false, hasMore: false };
 
-    // ใช้ CacheService เก็บข้อมูล itemMap สั้น ๆ เพื่อลดการอ่านบ่อย ๆ
-    const cache = CacheService.getScriptCache();
-    const cacheKey = 'itemMap_v1';
-    let itemMap = {};
-    const cached = cache.get(cacheKey);
-    if (cached) {
-      try { itemMap = JSON.parse(cached); } catch (e) { itemMap = {}; }
+    // ถ้าไม่ขอ full ให้จำกัดจำนวนแถวที่จะอ่านจากท้ายชีต (ลด I/O)
+    const SCAN_LIMIT = 1000; // ปรับได้ตามขนาดข้อมูล
+    let readStartRow = 1;
+    let readRowCount = lastTransRow;
+    if (!full) {
+      readRowCount = Math.min(lastTransRow, Math.max(neededCount, SCAN_LIMIT));
+      readStartRow = Math.max(1, lastTransRow - readRowCount + 1);
     }
-    if (!cached || Object.keys(itemMap).length === 0) {
-      const lastItemRow = Math.max(1, itemSheet.getLastRow());
-      const lastItemCol = Math.max(1, itemSheet.getLastColumn());
-      const itemData = lastItemRow >= 1 ? itemSheet.getRange(1, 1, lastItemRow, lastItemCol).getValues() : [];
-      for (let i = 1; i < itemData.length; i++) {
-        if (itemData[i][0]) itemMap[itemData[i][0].toString().trim()] = itemData[i][1] || "";
-      }
-      // เก็บ cache 300 วินาที
-      try { cache.put(cacheKey, JSON.stringify(itemMap), 300); } catch (e) { /* ignore cache errors */ }
-    }
+
+    const transData = transSheet.getRange(readStartRow, 1, readRowCount, lastTransCol).getValues();
 
     const targetUser = username ? username.trim().toLowerCase() : "";
     const userRole = role ? role.trim().toUpperCase() : "USER";
     const ssTimeZone = ss.getSpreadsheetTimeZone();
 
-    // วนจากแถวล่าสุดไปก่อน และหยุดเมื่อได้ข้อมูลพอสำหรับ requested page (ลดการประมวลผล)
-    const matched = [];
-    for (let j = transData.length - 1; j >= 1; j--) {
-      if (!transData[j] || !transData[j][1]) continue;
-      const transUser = transData[j][3] ? transData[j][3].toString().trim().toLowerCase() : "";
+    // เก็บตำแหน่งแถว (index ใน transData) ของรายการที่ตรงเงื่อนไข (วนจากท้ายที่อ่านได้)
+    const matchedIndices = [];
+    for (let i = transData.length - 1; i >= 1; i--) {
+      const row = transData[i];
+      if (!row || !row[1]) continue;
+      const transUser = row[3] ? String(row[3]).trim().toLowerCase() : "";
       if (userRole === "ADMIN" || userRole === "SUPER_ADMIN" || transUser === targetUser) {
-        matched.push(j); // เก็บ index ของแถวที่ตรงเงื่อนไข
-        if (matched.length >= neededCount) break; // หยุดเมื่อได้เพียงพอ
+        matchedIndices.push(i);
+        // ถ้าไม่ได้อ่านทั้งหมดและเก็บครบพอสำหรับหน้า requested ก็หยุด (performance)
+        if (!full && matchedIndices.length >= neededCount) break;
       }
     }
 
-    const historyList = [];
-    // สร้างผลลัพธ์สำหรับ page ที่ต้องการ (only format those rows)
-    const startIndex = (page - 1) * pageSize;
-    for (let k = startIndex; k < Math.min(matched.length, startIndex + pageSize); k++) {
-      const rowIdx = matched[k];
-      const row = transData[rowIdx];
+    // ถ้าขอ full ให้ยังต้องคำนวณ total จากการอ่านทั้งชีต — แต่ถ้าไม่ได้ขอ full และเราอ่านไม่ครบทั้งชีต,
+    // จะส่ง hasMore=true ถ้าอาจมีรายการเพิ่มเติมในส่วนที่ยังไม่ได้อ่าน
+    let totalMatches = matchedIndices.length;
+    let hasMore = false;
+    if (!full) {
+      // ถ้าเรอ่านไม่ใช่ทั้งชีต และ matchedIndices มาถึง neededCount แสดงว่าน่าจะมีเพิ่มเติม
+      if (readStartRow > 1 && matchedIndices.length >= neededCount) {
+        hasMore = true;
+      } else {
+        // ถ้า readStartRow === 1 แสดงว่าอ่านทั้งชีตแล้ว => totalMatches ถูกต้อง
+        hasMore = false;
+      }
+    } else {
+      // full = true: เพื่อให้ total ถูกต้อง เรำต้องสแกนทั้งชีต -> matchedIndices คือตำแหน่งใน transData (เต็ม)
+      totalMatches = matchedIndices.length;
+      hasMore = false;
+    }
 
-      // ฟอร์แมตวันที่เฉพาะแถวที่ต้องส่งกลับ
-      let bDateFormatted = "-";
-      let dDateFormatted = "-";
-      let rDateFormatted = "-";
+    // สร้างรายการที่จะส่งกลับเฉพาะสำหรับหน้า (pagination) โดยแปลง matchedIndices เป็นข้อมูลจริง
+    const historyList = [];
+    const startIndex = (page - 1) * pageSize;
+    for (let k = startIndex; k < Math.min(matchedIndices.length, startIndex + pageSize); k++) {
+      const idx = matchedIndices[k];
+      const row = transData[idx];
 
       const bRaw = row[4];
-      if (bRaw) bDateFormatted = Utilities.formatDate(bRaw instanceof Date ? bRaw : new Date(bRaw), ssTimeZone, "dd/MM/yyyy HH:mm");
-
       const dRaw = row[5];
-      if (dRaw) dDateFormatted = Utilities.formatDate(dRaw instanceof Date ? dRaw : new Date(dRaw), ssTimeZone, "dd/MM/yyyy");
-
       const rRaw = row[6];
-      if (rRaw) rDateFormatted = Utilities.formatDate(rRaw instanceof Date ? rRaw : new Date(rRaw), ssTimeZone, "dd/MM/yyyy HH:mm");
 
-      const borrowerEmail = row[3] ? row[3].toString().trim().toLowerCase() : "";
+      const borrowDate = bRaw ? Utilities.formatDate(bRaw instanceof Date ? bRaw : new Date(bRaw), ssTimeZone, "dd/MM/yyyy HH:mm") : "-";
+      const dueDate = dRaw ? Utilities.formatDate(dRaw instanceof Date ? dRaw : new Date(dRaw), ssTimeZone, "dd/MM/yyyy") : "-";
+      const returnDate = rRaw ? Utilities.formatDate(rRaw instanceof Date ? rRaw : new Date(rRaw), ssTimeZone, "dd/MM/yyyy HH:mm") : "-";
+
+      const borrowerEmail = row[3] ? String(row[3]).trim().toLowerCase() : "";
+
       historyList.push({
         transId: row[0],
         itemId: row[1],
-        itemName: itemMap[row[1].toString().trim()] || "ไม่พบชื่อพัสดุในคลัง",
-        borrowerName: row[2] ? row[2].toString().trim() : "ไม่ระบุชื่อ",
+        itemName: itemMap[String(row[1]).trim()] || "ไม่พบชื่อพัสดุในคลัง",
+        borrowerName: row[2] ? String(row[2]).trim() : "ไม่ระบุชื่อ",
         borrowerEmail: borrowerEmail,
-        borrowDate: bDateFormatted,
-        dueDate: dDateFormatted,
-        returnDate: rDateFormatted,
+        borrowDate: borrowDate,
+        dueDate: dueDate,
+        returnDate: returnDate,
         status: row[7],
         purpose: row[8] || "-",
         qty: row[9] || 1
       });
     }
 
-    // ส่งข้อมูลจำนวนรวม (เพื่อให้ UI แสดง pagination ได้)
-    const totalMatches = matched.length;
+    // ถ้าไม่ได้อ่านทั้งชีตแต่ต้องการ total ที่แท้จริง ควรเรียกด้วย full=true จาก UI
     const isGlobalView = (userRole === "ADMIN" || userRole === "SUPER_ADMIN");
-    return { success: true, history: historyList, total: totalMatches, page: page, pageSize: pageSize, isGlobalView: isGlobalView };
-  } catch (e) { return { success: false, message: e.toString() }; }
+    return { success: true, history: historyList, total: full ? totalMatches : null, page: page, pageSize: pageSize, isGlobalView: isGlobalView, hasMore: hasMore };
+  } catch (e) {
+    return { success: false, message: e.toString() };
+  }
 }
-
 /* เพิ่ม helper functions เพื่อประสิทธิภาพ I/O และ cache */
 function _openSS() {
   return SpreadsheetApp.openById(SPREADSHEET_ID);
