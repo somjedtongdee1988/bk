@@ -423,18 +423,9 @@ function _renderHistoryRows(tbody, adminApprovalTbody, rows, activeRole) {
 
 /* แก้ไข loadUserHistoryData ให้เรนเดอร์ 5 รายการแรก และแสดงปุ่ม "ดูเพิ่มเติมทั้งหมด" เมื่อจำเป็น */
 function loadUserHistoryData() {
-  const activeEmail = CURRENT_USER_EMAIL;
-  const activeRole = CURRENT_USER_ROLE;
-  if (!activeEmail) return;
-  const tbody = document.getElementById("user-history-tbody");
-  if (!tbody) return;
-
-  const moreRow = document.getElementById("user-history-more-row");
-  const moreBtn = document.getElementById("load-more-history-btn");
-  if (moreRow) moreRow.classList.add("hidden"); // เริ่มต้นซ่อน
-
-  // เรียกแค่ 5 รายการ (fast mode)
+  // ...existing code...
   google.script.run.withSuccessHandler(function(res) {
+    console.log("getUserLoanHistory res:", res); // debug
     if (!res.success || !res.history) {
       tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400 bg-gray-50/50">📝 ไม่พบประวัติ</td></tr>`;
       if (moreRow) moreRow.classList.add("hidden");
@@ -444,14 +435,27 @@ function loadUserHistoryData() {
     const adminApprovalTbody = document.getElementById("admin-approval-tbody");
     _renderHistoryRows(tbody, adminApprovalTbody, res.history, activeRole);
 
-    // แสดง/ซ่อนแถวปุ่มจาก tfoot ที่อยู่ใน Index.html
-    if (res.hasMore) {
+    // --- เปลี่ยน logic การแสดงปุ่มที่นี่ ---
+    const PAGE_SIZE = 5; // ต้องตรงกับค่าที่เรียกจากเซิร์ฟเวอร์
+    const hasMoreFlag = typeof res.hasMore !== 'undefined' ? !!res.hasMore : undefined;
+    const totalFromServer = (typeof res.total === 'number') ? res.total : null;
+
+    // กรณีควรแสดงปุ่ม:
+    // 1) เซิร์ฟเวอร์ส่ง hasMore = true
+    // 2) เซิร์ฟเวอร์ส่ง total และ total > จำนวนแถวที่ส่งกลับ
+    // 3) เซิร์ฟเวอร์ไม่ส่ง hasMore แต่เราได้จำนวนเท่ากับ pageSize (น่าจะมีเพิ่ม)
+    const shouldShowMore = (hasMoreFlag === true)
+                         || (totalFromServer !== null && totalFromServer > (res.history ? res.history.length : 0))
+                         || (typeof hasMoreFlag === 'undefined' && res.history && res.history.length >= PAGE_SIZE);
+
+    if (shouldShowMore) {
       if (moreRow) moreRow.classList.remove("hidden");
-      const btn = document.getElementById("load-more-history-btn");
-      if (btn) {
-        btn.onclick = function () {
+      if (moreBtn) {
+        moreBtn.onclick = function () {
           // โหลดทั้งหมดครั้งเดียว (full=true)
+          moreBtn.disabled = true;
           google.script.run.withSuccessHandler(function(resAll) {
+            moreBtn.disabled = false;
             if (!resAll.success || !resAll.history) { showToast("ไม่สามารถโหลดข้อมูลเพิ่มเติมได้", "error"); return; }
             _renderHistoryRows(tbody, adminApprovalTbody, resAll.history, activeRole);
             if (moreRow) moreRow.classList.add("hidden");
@@ -463,6 +467,7 @@ function loadUserHistoryData() {
     }
   }).getUserLoanHistory(activeEmail, activeRole, 1, 5, false);
 }
+
 function loadMoreUserHistory(total) {
   const activeEmail = CURRENT_USER_EMAIL;
   const activeRole = CURRENT_USER_ROLE;
