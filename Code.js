@@ -1134,7 +1134,7 @@ function rejectSingleBorrowRequest(transId, itemId, reason) {
       try { GmailApp.sendEmail(ADMIN_EMAIL_DEFAULT, `⚠️ Email send error for ${transId}`, `Error: ${mailErr.toString()}\nResolvedEmail: ${borrowerEmail}\nItem: ${itemId}`); }
       catch(e2) { Logger.log("Failed to notify admin about mail error: " + e2.toString()); }
     }
-
+    
     try { checkAndSendSummaryEmailToUser(transId); } catch(e){ Logger.log("checkAndSendSummaryEmailToUser err: " + e); }
 
     return { success: true, message: "❌ ปฏิเสธคำขอยืมพัสดุชิ้นนี้เรียบร้อยแล้ว" };
