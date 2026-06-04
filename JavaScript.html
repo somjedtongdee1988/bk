@@ -2,6 +2,7 @@
   let tempItemBase64Str = ""; 
   let autoRefreshInterval = null;
   const $id = (id) => document.getElementById(id);
+  const EXPAND_PAGE_SIZE = 1000000;
 
   document.addEventListener("DOMContentLoaded", function() {
     evaluateDisplayState();
@@ -431,7 +432,7 @@ window.USER_HISTORY_EXPANDED = window.USER_HISTORY_EXPANDED || false;
 
 function loadUserHistoryData() {
   const PAGE_SIZE = 5;
-  window.USER_HISTORY_EXPANDED = false; // คืนสถานะเป็นย่อทุกครั้งที่โหลดแบบปกติ
+  window.USER_HISTORY_EXPANDED = false;
   const activeEmail = (typeof CURRENT_USER_EMAIL !== "undefined" ? CURRENT_USER_EMAIL : (window && window.CURRENT_USER_EMAIL)) || "";
   const activeRole = (typeof CURRENT_USER_ROLE !== "undefined" ? CURRENT_USER_ROLE : (window && window.CURRENT_USER_ROLE)) || "USER";
 
@@ -485,23 +486,20 @@ function loadUserHistoryData() {
       const totalFromServer = (typeof res.total === "number") ? res.total : null;
       const totalToRequest = (totalFromServer !== null) ? totalFromServer : Math.max(rows.length, PAGE_SIZE);
 
-      // เงื่อนไขแสดงปุ่ม (รวมกรณี server ส่ง total === PAGE_SIZE)
+      // แสดงปุ่มเมื่อมีเหตุผลเพียงพอ
       const shouldShowMore = (hasMoreFlag === true)
                           || (totalFromServer !== null && totalFromServer > rows.length)
                           || (typeof hasMoreFlag === "undefined" && rows.length >= PAGE_SIZE)
                           || (totalFromServer !== null && totalFromServer === PAGE_SIZE && rows.length >= PAGE_SIZE);
 
       if (shouldShowMore) {
-        // ถ้ามี tfoot/moreRow ใช้มัน
         if (moreRow) {
           moreRow.classList.remove("hidden");
           if (moreBtn) {
             moreBtn.onclick = null;
             moreBtn.disabled = false;
-            // ตั้ง label เสมอเป็น ดูเพิ่มเติม เมื่อเป็น state ย่อ
             moreBtn.innerText = "🔎 ดูเพิ่มเติมทั้งหมด";
             moreBtn.onclick = function () {
-              // สลับไปโหลดแบบขยาย
               toggleLoadMore(totalToRequest);
             };
           }
@@ -1266,8 +1264,7 @@ function openMyProfileModal() {
 }
 
 function loadMoreUserHistory(total) {
-  // ให้เป็น thin wrapper ที่เรียก toggleLoadMore เพื่อพฤติกรรมเดียวกันเสมอ
-  console.log("loadMoreUserHistory requested, total:", total);
+  console.log("loadMoreUserHistory -> delegate to toggleLoadMore, total:", total);
   toggleLoadMore(total);
 }
 
@@ -1283,11 +1280,11 @@ function toggleLoadMore(total) {
   if (!tbody || !activeEmail) return;
 
   if (!window.USER_HISTORY_EXPANDED) {
-    // expand
+    // expand -> always request large pageSize (EXPAND_PAGE_SIZE) and full=true
     if (moreBtn) { moreBtn.disabled = true; moreBtn.dataset.origText = moreBtn.innerHTML || ""; moreBtn.innerText = "กำลังโหลด..."; }
     if (fbBtn) { fbBtn.disabled = true; fbBtn.dataset.origText = fbBtn.innerHTML || ""; fbBtn.innerText = "กำลังโหลด..."; }
 
-    console.log("toggleLoadMore -> requesting full history, total:", total);
+    console.log("toggleLoadMore -> requesting full history, total param:", total);
     google.script.run
       .withSuccessHandler(function(resAll) {
         console.log("toggleLoadMore resAll:", resAll);
@@ -1313,7 +1310,7 @@ function toggleLoadMore(total) {
         if (fbBtn) { fbBtn.disabled = false; if (fbBtn.dataset.origText) fbBtn.innerHTML = fbBtn.dataset.origText; }
         showToast("ไม่สามารถโหลดข้อมูลทั้งหมดได้ (เกิดข้อผิดพลาด)", "error");
       })
-      .getUserLoanHistory(activeEmail, activeRole, 1, total || (PAGE_SIZE * 1000), true);
+      .getUserLoanHistory(activeEmail, activeRole, 1, EXPAND_PAGE_SIZE, true);
   } else {
     // collapse -> โหลดแบบย่อใหม่
     window.USER_HISTORY_EXPANDED = false;
