@@ -471,19 +471,22 @@ function loadUserHistoryData() {
       }
 
       // แสดงเฉพาะ PAGE_SIZE แรก
-      const initialRows = rows.slice(0, PAGE_SIZE);
-      _renderHistoryRows(tbody, adminApprovalTbody, initialRows, activeRole);
-
-      const hasMoreFlag = (typeof res.hasMore !== "undefined") ? !!res.hasMore : undefined;
+     const hasMoreFlag = (typeof res.hasMore !== "undefined") ? !!res.hasMore : undefined;
       const totalFromServer = (typeof res.total === "number") ? res.total : null;
-      const shouldShowMore = (hasMoreFlag === true)
-                          || (totalFromServer !== null && totalFromServer > rows.length)
-                          || (typeof hasMoreFlag === "undefined" && rows.length >= PAGE_SIZE);
-
+      // เตรียม total ที่จะส่งเป็นพารามิเตอร์เมื่อกดดูเพิ่มเติม (fallback เป็น PAGE_SIZE หรือ rows.length)
       const totalToRequest = (totalFromServer !== null) ? totalFromServer : Math.max(rows.length, PAGE_SIZE);
 
+      // แสดงปุ่มเมื่อ:
+      // - เซิร์ฟเวอร์บอกว่ามีเพิ่ม (hasMore === true)
+      // - หรือ server ส่ง total ที่มากกว่า rows ที่ได้
+      // - หรือยังไม่มี flag hasMore แต่ได้ rows ครบหน้า (fallback)
+      // - หรือ server ส่ง total === PAGE_SIZE (ให้แสดงปุ่มกรณีต้องการดูทั้งหมด)
+      const shouldShowMore = (hasMoreFlag === true)
+                          || (totalFromServer !== null && totalFromServer > rows.length)
+                          || (typeof hasMoreFlag === "undefined" && rows.length >= PAGE_SIZE)
+                          || (totalFromServer !== null && totalFromServer === PAGE_SIZE && rows.length >= PAGE_SIZE);
+
       if (shouldShowMore) {
-        // ถ้ามี tfoot/moreRow ใช้มัน
         if (moreRow) {
           moreRow.classList.remove("hidden");
           if (moreBtn) {
@@ -522,17 +525,7 @@ function loadUserHistoryData() {
         const fb = document.getElementById('user-history-more-row-fallback');
         if (fb) fb.remove();
       }
-    })
-    .withFailureHandler(function(err) {
-      clearTimeout(timeoutId);
-      console.error("getUserLoanHistory failed:", err);
-      tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400 bg-gray-50/50">ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้</td></tr>`;
-      if (moreRow) moreRow.classList.add("hidden");
-      if (adminApprovalTbody) adminApprovalTbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400 bg-gray-50/50">ไม่สามารถโหลดคำขออนุมัติได้</td></tr>`;
-    })
-    .getUserLoanHistory(activeEmail, activeRole, 1, PAGE_SIZE, false);
-}
-
+      
 function loadMoreUserHistory(total) {
   const activeEmail = CURRENT_USER_EMAIL;
   const activeRole = CURRENT_USER_ROLE;
