@@ -1266,50 +1266,59 @@ function openMyProfileModal() {
 }
 
 function loadMoreUserHistory(total) {
+  // ให้เป็น thin wrapper ที่เรียก toggleLoadMore เพื่อพฤติกรรมเดียวกันเสมอ
+  console.log("loadMoreUserHistory requested, total:", total);
+  toggleLoadMore(total);
+}
+
+/* Toggle helper: ถ้ายังย่อ -> ดึงข้อมูลทั้งหมดและเปลี่ยนปุ่มเป็น "ย่อรายการ" ถ้ากำลังขยาย -> เรียก loadUserHistoryData เพื่อกลับสู่ย่อ */
+function toggleLoadMore(total) {
+  const moreBtn = document.getElementById("load-more-history-btn");
+  const fbBtn = document.getElementById("load-more-history-btn-fallback");
   const PAGE_SIZE = 5;
   const activeEmail = (typeof CURRENT_USER_EMAIL !== "undefined" ? CURRENT_USER_EMAIL : (window && window.CURRENT_USER_EMAIL)) || "";
   const activeRole = (typeof CURRENT_USER_ROLE !== "undefined" ? CURRENT_USER_ROLE : (window && window.CURRENT_USER_ROLE)) || "USER";
   const tbody = document.getElementById("user-history-tbody");
-  const moreRow = document.getElementById("user-history-more-row");
-  const moreBtn = document.getElementById("load-more-history-btn") || document.getElementById("load-more-history-btn-fallback");
   const adminApprovalTbody = document.getElementById("admin-approval-tbody");
-  if (!activeEmail || !tbody) return;
+  if (!tbody || !activeEmail) return;
 
-  // UI lock
-  if (moreBtn) {
-    moreBtn.disabled = true;
-    moreBtn.dataset.origText = moreBtn.innerHTML || "";
-    moreBtn.innerText = "กำลังโหลด...";
+  if (!window.USER_HISTORY_EXPANDED) {
+    // expand
+    if (moreBtn) { moreBtn.disabled = true; moreBtn.dataset.origText = moreBtn.innerHTML || ""; moreBtn.innerText = "กำลังโหลด..."; }
+    if (fbBtn) { fbBtn.disabled = true; fbBtn.dataset.origText = fbBtn.innerHTML || ""; fbBtn.innerText = "กำลังโหลด..."; }
+
+    console.log("toggleLoadMore -> requesting full history, total:", total);
+    google.script.run
+      .withSuccessHandler(function(resAll) {
+        console.log("toggleLoadMore resAll:", resAll);
+        if (moreBtn) { moreBtn.disabled = false; }
+        if (fbBtn) { fbBtn.disabled = false; }
+        if (!resAll || !resAll.success || !Array.isArray(resAll.history)) {
+          showToast("ไม่สามารถโหลดข้อมูลทั้งหมดได้", "error");
+          return;
+        }
+
+        // render ทั้งหมด
+        _renderHistoryRows(tbody, adminApprovalTbody, resAll.history, activeRole);
+        window.USER_HISTORY_EXPANDED = true;
+
+        // เปลี่ยนปุ่มเป็นย่อ (ทั้ง tfoot และ fallback)
+        const newLabel = "▲ ย่อรายการ";
+        if (moreBtn) { moreBtn.innerHTML = newLabel; moreBtn.onclick = function() { loadUserHistoryData(); }; }
+        if (fbBtn) { fbBtn.innerHTML = newLabel; fbBtn.onclick = function() { loadUserHistoryData(); }; }
+      })
+      .withFailureHandler(function(err) {
+        console.error("toggleLoadMore failed:", err);
+        if (moreBtn) { moreBtn.disabled = false; if (moreBtn.dataset.origText) moreBtn.innerHTML = moreBtn.dataset.origText; }
+        if (fbBtn) { fbBtn.disabled = false; if (fbBtn.dataset.origText) fbBtn.innerHTML = fbBtn.dataset.origText; }
+        showToast("ไม่สามารถโหลดข้อมูลทั้งหมดได้ (เกิดข้อผิดพลาด)", "error");
+      })
+      .getUserLoanHistory(activeEmail, activeRole, 1, total || (PAGE_SIZE * 1000), true);
+  } else {
+    // collapse -> โหลดแบบย่อใหม่
+    window.USER_HISTORY_EXPANDED = false;
+    loadUserHistoryData();
   }
-
-  // request full data
-  google.script.run
-    .withSuccessHandler(function(resAll) {
-      if (moreBtn) {
-        moreBtn.disabled = false;
-        if (moreBtn.dataset.origText) moreBtn.innerHTML = moreBtn.dataset.origText;
-      }
-      if (!resAll || !resAll.success || !Array.isArray(resAll.history)) {
-        showToast("ไม่สามารถโหลดข้อมูลทั้งหมดได้", "error");
-        return;
-      }
-      // render all
-      _renderHistoryRows(tbody, adminApprovalTbody, resAll.history, activeRole);
-
-      // ซ่อนปุ่มทั้ง tfoot และ fallback
-      if (moreRow) moreRow.classList.add("hidden");
-      const fb = document.getElementById('user-history-more-row-fallback');
-      if (fb) fb.remove();
-    })
-    .withFailureHandler(function(err) {
-      if (moreBtn) {
-        moreBtn.disabled = false;
-        if (moreBtn.dataset.origText) moreBtn.innerHTML = moreBtn.dataset.origText;
-      }
-      console.error("loadMoreUserHistory failed:", err);
-      showToast("ไม่สามารถโหลดข้อมูลทั้งหมดได้ (เกิดข้อผิดพลาด)", "error");
-    })
-    .getUserLoanHistory(activeEmail, activeRole, 1, total || (PAGE_SIZE * 1000), true);
 }
 
 /* Toggle helper: ถ้ายังย่อ -> โหลดทั้งหมดและเปลี่ยนปุ่มเป็น "ย่อรายการ" ถ้ากำลังขยาย -> เรียก loadUserHistoryData เพื่อกลับสู่ย่อ */
