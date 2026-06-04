@@ -17,3 +17,6 @@ jobs:
         run: echo '${{ secrets.CLASPRC_JSON }}' > ~/.clasprc.json
       - name: Push to GAS
         run: clasp push -f
+      - name: Deploy to GAS
+        run: clasp deploy -d "Auto-deploy from GitHub"
+        
