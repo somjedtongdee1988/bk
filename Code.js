@@ -1066,7 +1066,14 @@ function approveSingleBorrowRequest(transId, itemId) {
     transSheet.getRange(foundTransRow, 5).setValue(new Date()); 
     transSheet.getRange(foundTransRow, 8).setValue("กำลังยืม");
 
-    // [TARGET FIX] ตรวจสอบความครบถ้วนของตะกร้า เพื่อส่งอีเมลรวมผล 1 ฉบับหาผู้ใช้งาน
+    // ส่งอีเมลตอบกลับผู้ขอยืม สำหรับพัสดุชิ้นนี้ (ทันที)
+    try {
+      sendApprovalEmail(transId);
+    } catch (mailErr) {
+      Logger.log("Warning: sendApprovalEmail failed: " + mailErr.toString());
+    }
+
+    // ตรวจสอบความครบถ้วนของตะกร้า เพื่อส่งอีเมลสรุปผลรวมหากครบทุกชิ้น
     checkAndSendSummaryEmailToUser(transId);
 
     return { success: true, message: "✅ อนุมัติการยืมพัสดุชิ้นนี้สำเร็จเรียบร้อยแล้ว" };
@@ -1096,7 +1103,14 @@ function rejectSingleBorrowRequest(transId, itemId, reason) {
       transSheet.getRange(foundTransRow, 9).setValue(currentPurpose + " [เหตุผลปฏิเสธ: " + reason.trim() + "]");
     }
 
-    // [TARGET FIX] ตรวจสอบความครบถ้วนของตะกร้า เพื่อส่งอีเมลรวมผล 1 ฉบับหาผู้ใช้งาน
+    // ส่งอีเมลแจ้งผู้ขอยืมทันที ว่าชิ้นนี้ถูกปฏิเสธ พร้อมเหตุผล
+    try {
+      sendRejectionEmail(transId, reason || "");
+    } catch (mailErr) {
+      Logger.log("Warning: sendRejectionEmail failed: " + mailErr.toString());
+    }
+
+    // ตรวจสอบความครบถ้วนของตะกร้า เพื่อส่งอีเมลสรุปผลรวมหากครบทุกชิ้น
     checkAndSendSummaryEmailToUser(transId);
 
     return { success: true, message: "❌ ปฏิเสธคำขอยืมพัสดุชิ้นนี้เรียบร้อยแล้ว" };
