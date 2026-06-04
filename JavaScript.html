@@ -346,115 +346,230 @@
       }).getExecutiveReportData(CURRENT_EXECUTIVE_FILTER);
   }
 
-  function loadUserHistoryData() {
-    const activeEmail = CURRENT_USER_EMAIL;
-    const activeRole = CURRENT_USER_ROLE;
-    if (!activeEmail) return;
-    const tbody = document.getElementById("user-history-tbody");
-    if(!tbody) return;
-    
-    google.script.run.withSuccessHandler(function(res) {
-      if (!res.success || res.history.length === 0) { 
-        tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400 bg-gray-50/50">📝 ไม่พบประวัติบันทึกธุรกรรมการยืมพัสดุในระบบขณะนี้</td></tr>`; 
-        return; 
-      }
-      
-      const theadRow = tbody.closest('table').querySelector('thead tr');
-      if (theadRow) {
-          theadRow.innerHTML = `
-            <th class="p-3.5 text-center">รหัสพัสดุ</th>
-            <th class="p-3.5">ชื่อครุภัณฑ์อุปกรณ์</th>
-            <th class="p-3.5 text-center">จำนวนยืม</th>
-            <th class="p-3.5">ผู้ทำรายการยืม</th>
-            <th class="p-3.5">วันที่ยืม</th>
-            <th class="p-3.5">กำหนดส่งคืน</th>
-            <th class="p-3.5">วันที่คืนจริง</th>
-            <th class="p-3.5 text-center">สถานะ</th>`;
-      }
+function loadUserHistoryData() {
+  const activeEmail = CURRENT_USER_EMAIL;
+  const activeRole = CURRENT_USER_ROLE;
+  if (!activeEmail) return;
+  const tbody = document.getElementById("user-history-tbody");
+  if(!tbody) return;
 
-      tbody.innerHTML = "";
-      
-      const adminApprovalTbody = document.getElementById("admin-approval-tbody");
-      if(adminApprovalTbody && (activeRole === "ADMIN" || activeRole === "SUPER_ADMIN")) {
-         adminApprovalTbody.innerHTML = "";
-      }
-      
-      let approvalCountForBadge = 0;
+  // เรียกแค่ 5 รายการแรก (page=1, pageSize=5)
+  google.script.run.withSuccessHandler(function(res) {
+    if (!res.success || !res.history || res.history.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400 bg-gray-50/50">📝 ไม่พบประวัติบันทึกธุรกรรมการยืมพัสดุในระบบขณะนี้</td></tr>`;
+      return;
+    }
 
-      res.history.forEach(function(row) {
-        let badge = "";
-        if (row.status === "รออนุมัติ") {
-          approvalCountForBadge++;
-          badge = `<span class="inline-flex items-center gap-1.5 bg-amber-50 text-amber-800 text-xs font-bold px-3 py-1 rounded-full border border-amber-200">
-                     <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> ⏳ รออนุมัติจากเจ้าหน้าที่
-                   </span>`;
-        } else if (row.status === "กำลังยืม") {
-          badge = `<span class="inline-flex items-center gap-1.5 bg-rose-50 text-rose-700 text-xs font-bold px-3 py-1 rounded-full border border-rose-100">
-                     <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span> ค้างคืนอุปกรณ์
-                   </span>`;
-        } else if (row.status === "ไม่อนุมัติ") {
-          badge = `<span class="inline-flex items-center gap-1.5 bg-red-50 text-red-700 text-xs font-bold px-3 py-1 rounded-full border border-red-200">
-                     <span class="w-2 h-2 rounded-full bg-red-500"></span> ❌ ปฏิเสธคำขอยืม
-                   </span>`;
-        } else {
-          badge = `<span class="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 text-xs font-bold px-3 py-1 rounded-full border border-emerald-100">
-                     <span class="w-2 h-2 rounded-full bg-emerald-500"></span> ส่งคืนคลังแล้ว
-                   </span>`;
-        }
-        
-        let returnDateDisplay = (row.status === "กำลังยืม" || row.status === "รออนุมัติ" || row.status === "ไม่อนุมัติ") ? "-" : (row.returnDate || "-");
-        
-        let rowHtml = `<tr onclick="openTxDetailsModal(${JSON.stringify(row).replace(/"/g, '&quot;')})" class="hover:bg-slate-50 transition border-b border-slate-100 bg-white cursor-pointer">
-          <td class="p-3.5 text-center font-mono font-bold text-slate-900">${row.itemId}</td>
-          <td class="p-3.5 font-medium text-slate-700">${row.itemName}</td>
-          <td class="p-3.5 text-center font-bold text-slate-800">${row.qty} ชิ้น</td>
-          <td class="p-3.5 text-slate-600">
-            <div class="text-xs">${row.borrowerName}</div>
-            <div class="text-xxs text-slate-400 font-mono">${row.borrowerEmail}</div>
-          </td>
-          <td class="p-3.5 text-slate-600 font-medium">${row.borrowDate}</td>
-          <td class="p-3.5 text-slate-600 font-medium">${row.dueDate}</td>
-          <td class="p-3.5 text-slate-600 font-medium font-mono">${returnDateDisplay}</td>
-          <td class="p-3.5 text-center">${badge}</td>
-        </tr>`;
-        
-        tbody.innerHTML += rowHtml;
+    const theadRow = tbody.closest('table').querySelector('thead tr');
+    if (theadRow) {
+        theadRow.innerHTML = `
+          <th class="p-3.5 text-center">รหัสพัสดุ</th>
+          <th class="p-3.5">ชื่อครุภัณฑ์อุปกรณ์</th>
+          <th class="p-3.5 text-center">จำนวนยืม</th>
+          <th class="p-3.5">ผู้ทำรายการยืม</th>
+          <th class="p-3.5">วันที่ยืม</th>
+          <th class="p-3.5">กำหนดส่งคืน</th>
+          <th class="p-3.5">วันที่คืนจริง</th>
+          <th class="p-3.5 text-center">สถานะ</th>`;
+    }
 
-        // บรรจุรายการลงหน้าตรวจสอบ อนุมัติ/ไม่อนุมัติ ของแอดมิน
-        if(adminApprovalTbody && row.status === "รออนุมัติ" && (activeRole === "ADMIN" || activeRole === "SUPER_ADMIN")) {
-           adminApprovalTbody.innerHTML += `
-             <tr class="border-b border-slate-100 bg-white text-xs">
-               <td class="p-3 text-center font-mono font-bold text-slate-700">${row.transId}</td>
-               <td class="p-3 font-semibold text-slate-900">${row.itemId}<br><span class="text-slate-400 font-normal">${row.itemName}</span></td>
-               <td class="p-3 text-center font-bold">${row.qty} ชิ้น</td>
-               <td class="p-3 font-medium">${row.borrowerName}<br><span class="text-xxs text-slate-400 font-mono">${row.borrowerEmail}</span></td>
-               <td class="p-3 text-slate-500 truncate max-w-[150px]">${row.purpose}</td>
-               <td class="p-3 text-slate-600 font-mono">${row.dueDate}</td>
-               <td class="p-3 text-center space-x-1">
-                 <button onclick="executeApproveAction('${row.transId}', '${row.itemId}')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-2.5 py-1.5 rounded-lg transition shadow-sm text-xxs">📋 อนุมัติ</button>
-                 <button onclick="executeRejectAction('${row.transId}', '${row.itemId}')" class="bg-rose-600 hover:bg-rose-700 text-white font-black px-2.5 py-1.5 rounded-lg transition shadow-sm text-xxs">❌ ปฏิเสธ</button>
-               </td>
-             </tr>`;
-        }
-      });
+    tbody.innerHTML = "";
 
-      const approvalBadgeEl = document.getElementById("nav-approval-badge");
-      if(approvalBadgeEl) {
-         if(approvalCountForBadge > 0 && (activeRole === "ADMIN" || activeRole === "SUPER_ADMIN")) {
-            approvalBadgeEl.innerText = approvalCountForBadge;
-            approvalBadgeEl.classList.remove("hidden");
-         } else {
-            approvalBadgeEl.classList.add("hidden");
-         }
+    const adminApprovalTbody = document.getElementById("admin-approval-tbody");
+    if(adminApprovalTbody && (activeRole === "ADMIN" || activeRole === "SUPER_ADMIN")) {
+       adminApprovalTbody.innerHTML = "";
+    }
+
+    let approvalCountForBadge = 0;
+
+    // render เฉพาะ rows ที่ได้มา (สูงสุด 5)
+    res.history.forEach(function(row) {
+      let badge = "";
+      if (row.status === "รออนุมัติ") {
+        approvalCountForBadge++;
+        badge = `<span class="inline-flex items-center gap-1.5 bg-amber-50 text-amber-800 text-xs font-bold px-3 py-1 rounded-full border border-amber-200">
+                   <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> ⏳ รออนุมัติจากเจ้าหน้าที่
+                 </span>`;
+      } else if (row.status === "กำลังยืม") {
+        badge = `<span class="inline-flex items-center gap-1.5 bg-rose-50 text-rose-700 text-xs font-bold px-3 py-1 rounded-full border border-rose-100">
+                   <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span> ค้างคืนอุปกรณ์
+                 </span>`;
+      } else if (row.status === "ไม่อนุมัติ") {
+        badge = `<span class="inline-flex items-center gap-1.5 bg-red-50 text-red-700 text-xs font-bold px-3 py-1 rounded-full border border-red-200">
+                   <span class="w-2 h-2 rounded-full bg-red-500"></span> ❌ ปฏิเสธคำขอยืม
+                 </span>`;
+      } else {
+        badge = `<span class="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 text-xs font-bold px-3 py-1 rounded-full border border-emerald-100">
+                   <span class="w-2 h-2 rounded-full bg-emerald-500"></span> ส่งคืนคลังแล้ว
+                 </span>`;
       }
 
-      if(adminApprovalTbody && adminApprovalTbody.innerHTML === "" && (activeRole === "ADMIN" || activeRole === "SUPER_ADMIN")) {
-         adminApprovalTbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400 bg-gray-50/50">🎉 ไม่มีคำขอยืมครุภัณฑ์พัสดุค้างพิจารณาอนุมัติในขณะนี้</td></tr>`;
-      }
+      let returnDateDisplay = (row.status === "กำลังยืม" || row.status === "รออนุมัติ" || row.status === "ไม่อนุมัติ") ? "-" : (row.returnDate || "-");
 
-    }).getUserLoanHistory(activeEmail, activeRole);
+      let rowHtml = `<tr onclick="openTxDetailsModal(${JSON.stringify(row).replace(/"/g, '&quot;')})" class="hover:bg-slate-50 transition border-b border-slate-100 bg-white cursor-pointer">
+        <td class="p-3.5 text-center font-mono font-bold text-slate-900">${row.itemId}</td>
+        <td class="p-3.5 font-medium text-slate-700">${row.itemName}</td>
+        <td class="p-3.5 text-center font-bold text-slate-800">${row.qty} ชิ้น</td>
+        <td class="p-3.5 text-slate-600">
+          <div class="text-xs">${row.borrowerName}</div>
+          <div class="text-xxs text-slate-400 font-mono">${row.borrowerEmail}</div>
+        </td>
+        <td class="p-3.5 text-slate-600 font-medium">${row.borrowDate}</td>
+        <td class="p-3.5 text-slate-600 font-medium">${row.dueDate}</td>
+        <td class="p-3.5 text-slate-600 font-medium font-mono">${returnDateDisplay}</td>
+        <td class="p-3.5 text-center">${badge}</td>
+      </tr>`;
+
+      tbody.innerHTML += rowHtml;
+
+      if(adminApprovalTbody && row.status === "รออนุมัติ" && (activeRole === "ADMIN" || activeRole === "SUPER_ADMIN")) {
+         adminApprovalTbody.innerHTML += `
+           <tr class="border-b border-slate-100 bg-white text-xs">
+             <td class="p-3 text-center font-mono font-bold text-slate-700">${row.transId}</td>
+             <td class="p-3 font-semibold text-slate-900">${row.itemId}<br><span class="text-slate-400 font-normal">${row.itemName}</span></td>
+             <td class="p-3 text-center font-bold">${row.qty} ชิ้น</td>
+             <td class="p-3 font-medium">${row.borrowerName}<br><span class="text-xxs text-slate-400 font-mono">${row.borrowerEmail}</span></td>
+             <td class="p-3 text-slate-500 truncate max-w-[150px]">${row.purpose}</td>
+             <td class="p-3 text-slate-600 font-mono">${row.dueDate}</td>
+             <td class="p-3 text-center space-x-1">
+               <button onclick="executeApproveAction('${row.transId}', '${row.itemId}')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-2.5 py-1.5 rounded-lg transition shadow-sm text-xxs">📋 อนุมัติ</button>
+               <button onclick="executeRejectAction('${row.transId}', '${row.itemId}')" class="bg-rose-600 hover:bg-rose-700 text-white font-black px-2.5 py-1.5 rounded-lg transition shadow-sm text-xxs">❌ ปฏิเสธ</button>
+             </td>
+           </tr>`;
+      }
+    });
+
+    // ถ้ามีมากกว่า 5 รายการ ให้แสดงปุ่ม "ดูเพิ่มเติมทั้งหมด"
+    if (res.total && res.total > res.history.length) {
+      const moreRow = document.createElement('tr');
+      moreRow.innerHTML = `<td colspan="8" class="p-4 text-center bg-white">
+        <button onclick="loadMoreUserHistory(${res.total})" class="px-4 py-2 bg-slate-900 text-amber-400 rounded-lg font-bold">🔎 ดูเพิ่มเติมทั้งหมด (${res.total})</button>
+      </td>`;
+      tbody.appendChild(moreRow);
+    }
+
+    const approvalBadgeEl = document.getElementById("nav-approval-badge");
+    if(approvalBadgeEl) {
+       if(approvalCountForBadge > 0 && (activeRole === "ADMIN" || activeRole === "SUPER_ADMIN")) {
+          approvalBadgeEl.innerText = approvalCountForBadge;
+          approvalBadgeEl.classList.remove("hidden");
+       } else {
+          approvalBadgeEl.classList.add("hidden");
+       }
+    }
+
+    if(adminApprovalTbody && adminApprovalTbody.innerHTML === "" && (activeRole === "ADMIN" || activeRole === "SUPER_ADMIN")) {
+       adminApprovalTbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400 bg-gray-50/50">🎉 ไม่มีคำขอยืมครุภัณฑ์พัสดุค้างพิจารณาอนุมัติในขณะนี้</td></tr>`;
+    }
+
+  }).getUserLoanHistory(activeEmail, activeRole, 1, 5);
 }
 
+function loadMoreUserHistory(total) {
+  const activeEmail = CURRENT_USER_EMAIL;
+  const activeRole = CURRENT_USER_ROLE;
+  if (!activeEmail) return;
+  const tbody = document.getElementById("user-history-tbody");
+  if(!tbody) return;
+
+  // ดึงทั้งหมด (page=1, pageSize=total)
+  google.script.run.withSuccessHandler(function(res) {
+    if (!res.success || !res.history || res.history.length === 0) {
+      showToast("ไม่พบข้อมูลเพิ่มเติม", "error");
+      return;
+    }
+    // แทนที่ตารางด้วยผลลัพธ์ทั้งหมด (reuse rendering from loadUserHistoryData)
+    const theadRow = tbody.closest('table').querySelector('thead tr');
+    if (theadRow) {
+        theadRow.innerHTML = `
+          <th class="p-3.5 text-center">รหัสพัสดุ</th>
+          <th class="p-3.5">ชื่อครุภัณฑ์อุปกรณ์</th>
+          <th class="p-3.5 text-center">จำนวนยืม</th>
+          <th class="p-3.5">ผู้ทำรายการยืม</th>
+          <th class="p-3.5">วันที่ยืม</th>
+          <th class="p-3.5">กำหนดส่งคืน</th>
+          <th class="p-3.5">วันที่คืนจริง</th>
+          <th class="p-3.5 text-center">สถานะ</th>`;
+    }
+    tbody.innerHTML = "";
+    const adminApprovalTbody = document.getElementById("admin-approval-tbody");
+    if(adminApprovalTbody && (activeRole === "ADMIN" || activeRole === "SUPER_ADMIN")) {
+       adminApprovalTbody.innerHTML = "";
+    }
+    let approvalCountForBadge = 0;
+    res.history.forEach(function(row) {
+      // (ซ้ำการสร้าง row แบบเดียวกับข้างบน)
+      let badge = "";
+      if (row.status === "รออนุมัติ") {
+        approvalCountForBadge++;
+        badge = `<span class="inline-flex items-center gap-1.5 bg-amber-50 text-amber-800 text-xs font-bold px-3 py-1 rounded-full border border-amber-200">
+                   <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> ⏳ รออนุมัติจากเจ้าหน้าที่
+                 </span>`;
+      } else if (row.status === "กำลังยืม") {
+        badge = `<span class="inline-flex items-center gap-1.5 bg-rose-50 text-rose-700 text-xs font-bold px-3 py-1 rounded-full border border-rose-100">
+                   <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span> ค้างคืนอุปกรณ์
+                 </span>`;
+      } else if (row.status === "ไม่อนุมัติ") {
+        badge = `<span class="inline-flex items-center gap-1.5 bg-red-50 text-red-700 text-xs font-bold px-3 py-1 rounded-full border border-red-200">
+                   <span class="w-2 h-2 rounded-full bg-red-500"></span> ❌ ปฏิเสธคำขอยืม
+                 </span>`;
+      } else {
+        badge = `<span class="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 text-xs font-bold px-3 py-1 rounded-full border border-emerald-100">
+                   <span class="w-2 h-2 rounded-full bg-emerald-500"></span> ส่งคืนคลังแล้ว
+                 </span>`;
+      }
+
+      let returnDateDisplay = (row.status === "กำลังยืม" || row.status === "รออนุมัติ" || row.status === "ไม่อนุมัติ") ? "-" : (row.returnDate || "-");
+
+      let rowHtml = `<tr onclick="openTxDetailsModal(${JSON.stringify(row).replace(/"/g, '&quot;')})" class="hover:bg-slate-50 transition border-b border-slate-100 bg-white cursor-pointer">
+        <td class="p-3.5 text-center font-mono font-bold text-slate-900">${row.itemId}</td>
+        <td class="p-3.5 font-medium text-slate-700">${row.itemName}</td>
+        <td class="p-3.5 text-center font-bold text-slate-800">${row.qty} ชิ้น</td>
+        <td class="p-3.5 text-slate-600">
+          <div class="text-xs">${row.borrowerName}</div>
+          <div class="text-xxs text-slate-400 font-mono">${row.borrowerEmail}</div>
+        </td>
+        <td class="p-3.5 text-slate-600 font-medium">${row.borrowDate}</td>
+        <td class="p-3.5 text-slate-600 font-medium">${row.dueDate}</td>
+        <td class="p-3.5 text-slate-600 font-medium font-mono">${returnDateDisplay}</td>
+        <td class="p-3.5 text-center">${badge}</td>
+      </tr>`;
+
+      tbody.innerHTML += rowHtml;
+
+      if(adminApprovalTbody && row.status === "รออนุมัติ" && (activeRole === "ADMIN" || activeRole === "SUPER_ADMIN")) {
+         adminApprovalTbody.innerHTML += `
+           <tr class="border-b border-slate-100 bg-white text-xs">
+             <td class="p-3 text-center font-mono font-bold text-slate-700">${row.transId}</td>
+             <td class="p-3 font-semibold text-slate-900">${row.itemId}<br><span class="text-slate-400 font-normal">${row.itemName}</span></td>
+             <td class="p-3 text-center font-bold">${row.qty} ชิ้น</td>
+             <td class="p-3 font-medium">${row.borrowerName}<br><span class="text-xxs text-slate-400 font-mono">${row.borrowerEmail}</span></td>
+             <td class="p-3 text-slate-500 truncate max-w-[150px]">${row.purpose}</td>
+             <td class="p-3 text-slate-600 font-mono">${row.dueDate}</td>
+             <td class="p-3 text-center space-x-1">
+               <button onclick="executeApproveAction('${row.transId}', '${row.itemId}')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-2.5 py-1.5 rounded-lg transition shadow-sm text-xxs">📋 อนุมัติ</button>
+               <button onclick="executeRejectAction('${row.transId}', '${row.itemId}')" class="bg-rose-600 hover:bg-rose-700 text-white font-black px-2.5 py-1.5 rounded-lg transition shadow-sm text-xxs">❌ ปฏิเสธ</button>
+             </td>
+           </tr>`;
+      }
+    });
+
+    const approvalBadgeEl = document.getElementById("nav-approval-badge");
+    if(approvalBadgeEl) {
+       if(approvalCountForBadge > 0 && (activeRole === "ADMIN" || activeRole === "SUPER_ADMIN")) {
+          approvalBadgeEl.innerText = approvalCountForBadge;
+          approvalBadgeEl.classList.remove("hidden");
+       } else {
+          approvalBadgeEl.classList.add("hidden");
+       }
+    }
+
+    if(adminApprovalTbody && adminApprovalTbody.innerHTML === "" && (activeRole === "ADMIN" || activeRole === "SUPER_ADMIN")) {
+       adminApprovalTbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400 bg-gray-50/50">🎉 ไม่มีคำขอยืมครุภัณฑ์พัสดุค้างพิจารณาอนุมัติในขณะนี้</td></tr>`;
+    }
+
+  }).getUserLoanHistory(activeEmail, activeRole, 1, total);
+}
   // [TARGET FIX] เปลี่ยนกระบวนการยืนยันหน้าบ้านมาใช้ SweetAlert2 ทั้งหมด มั่นใจได้ว่าไม่มี URL ยืดยาวและแอปพลิเคชันไม่ค้าง 100%
   function executeApproveAction(transId, itemId) {
     Swal.fire({
