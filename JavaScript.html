@@ -470,9 +470,11 @@ function loadUserHistoryData() {
         return;
       }
 
-      _renderHistoryRows(tbody, adminApprovalTbody, rows, activeRole);
-
+      // แสดงเฉพาะ PAGE_SIZE แรกบนตาราง (UI ต้องการ 5 รายการเริ่มต้น)
       const PAGE_SIZE = 5;
+      const initialRows = rows.slice(0, PAGE_SIZE);
+      _renderHistoryRows(tbody, adminApprovalTbody, initialRows, activeRole);
+
       const hasMoreFlag = (typeof res.hasMore !== "undefined") ? !!res.hasMore : undefined;
       const totalFromServer = (typeof res.total === "number") ? res.total : null;
       const shouldShowMore = (hasMoreFlag === true)
@@ -482,21 +484,14 @@ function loadUserHistoryData() {
       if (shouldShowMore) {
         if (moreRow) moreRow.classList.remove("hidden");
         if (moreBtn) {
+          // ป้องกันการผูกหลายครั้ง
+          moreBtn.onclick = null;
           moreBtn.disabled = false;
+          // ส่ง total จากเซิร์ฟเวอร์ (fallback เป็นจำนวนที่โหลดมาครั้งแรก)
+          const totalToRequest = (totalFromServer !== null) ? totalFromServer : Math.max(rows.length, PAGE_SIZE);
           moreBtn.onclick = function () {
             moreBtn.disabled = true;
-            google.script.run.withSuccessHandler(function(resAll) {
-              moreBtn.disabled = false;
-              if (!resAll || !resAll.success || !Array.isArray(resAll.history)) {
-                showToast("ไม่สามารถโหลดข้อมูลเพิ่มเติมได้", "error");
-                return;
-              }
-              _renderHistoryRows(tbody, adminApprovalTbody, resAll.history, activeRole);
-              if (moreRow) moreRow.classList.add("hidden");
-            }).withFailureHandler(function(err) {
-              moreBtn.disabled = false;
-              showToast("ไม่สามารถโหลดข้อมูลเพิ่มเติมได้", "error");
-            }).getUserLoanHistory(activeEmail, activeRole, 1, 1000000, true);
+            loadMoreUserHistory(totalToRequest);
           };
         }
       } else {
@@ -510,7 +505,7 @@ function loadUserHistoryData() {
       if (moreRow) moreRow.classList.add("hidden");
       if (adminApprovalTbody) adminApprovalTbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400 bg-gray-50/50">ไม่สามารถโหลดคำขออนุมัติได้</td></tr>`;
     })
-    .getUserLoanHistory(activeEmail, activeRole, 1, 5, false);
+    .getUserLoanHistory(activeEmail, activeRole, 1, PAGE_SIZE, false);
 }
 
 function loadMoreUserHistory(total) {
