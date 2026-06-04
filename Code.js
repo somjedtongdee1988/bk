@@ -66,16 +66,27 @@ function doGet() {
  * @param {string} username - ชื่อผู้ใช้ที่ต้องการค้นหา
  * @return {string|null} อีเมลของผู้ใช้ หรือ null ถ้าไม่พบ
  */
-function getUserEmail(username) {
+function getUserEmail(identifier) {
   try {
-    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    var sheet = ss.getSheetByName("Users");
-    if (!sheet) return null;
-    var data = sheet.getDataRange().getValues();
-    for (var i = 1; i < data.length; i++) {
-      if (data[i][0].toString().trim().toLowerCase() === username.toString().trim().toLowerCase()) {
-        return data[i][4]; 
+    if (!identifier) return null;
+    const candidate = String(identifier).trim();
+    if (candidate.indexOf('@') !== -1) return candidate; // ถ้าเป็นอีเมลแล้ว ให้คืนเลย
+
+    const res = _readSheetAll('Users');
+    const data = res.values || [];
+    const target = candidate.toLowerCase();
+
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      if (!row || !row[0]) continue;
+      const username = String(row[0] || "").trim().toLowerCase();
+      const fullName = String(row[3] || "").trim().toLowerCase();
+      const email = String(row[4] || "").trim();
+      if (username === target || fullName === target) {
+        return email || null;
       }
+      // หาก identifier ตรงกับ email ในชีต ให้คืนค่าเลย
+      if (email && email.toLowerCase() === target) return email;
     }
   } catch (error) {
     Logger.log("Error ในการค้นหาอีเมล: " + error.toString());
@@ -1122,23 +1133,31 @@ function returnSingleItem(transId, itemId, qty) {
 function _resolveBorrowerEmail(txDataRow) {
   try {
     if (!txDataRow) return null;
-    // เลือกคีย์ที่เป็นไปได้
-    const possible = [
+
+    // ตรวจค่าใน tx row หลาย key ที่อาจเก็บอีเมล
+    const rawEmails = [
       txDataRow['borrowerEmail'],
       txDataRow['email'],
       txDataRow['ผู้ยืมอีเมล'],
-      txDataRow['ผู้ยืม'],
-      txDataRow['borrower']  // เผื่อรูปแบบอื่น
+      txDataRow['borrower']
     ];
-    for (let p of possible) if (p && String(p).trim() !== "") return String(p).trim();
-
-    // ถ้าไม่มีใน transaction ให้ลองดึงจาก Users โดยใช้ username/fullName (borrowerName)
-    const borrowerName = txDataRow['borrowerName'] || txDataRow['username'] || txDataRow['ผู้ยืมชื่อ'] || "";
-    if (borrowerName && String(borrowerName).trim() !== "") {
-      const uEmail = getUserEmail(String(borrowerName).trim());
-      if (uEmail) return uEmail;
-      // ถ้าไม่ได้ผล ให้ลองมองหาจาก fullname column (หลักการเดียวกับ getUserEmail)
+    for (let v of rawEmails) {
+      if (v && String(v).trim() !== "") {
+        const s = String(v).trim();
+        if (s.indexOf('@') !== -1) return s;
+        // ถ้าเป็น username/identifier ให้ลอง lookup
+        const resolved = getUserEmail(s);
+        if (resolved) return resolved;
+      }
     }
+
+    // ถ้ายังไม่มี ลองใช้ borrowerName (อาจเป็น full name)
+    const borrowerName = txDataRow['borrowerName'] || txDataRow['ผู้ยืมชื่อ'] || "";
+    if (borrowerName && String(borrowerName).trim() !== "") {
+      const resolved = getUserEmail(String(borrowerName).trim());
+      if (resolved) return resolved;
+    }
+
   } catch (e) {
     Logger.log("resolveBorrowerEmail error: " + e.toString());
   }
