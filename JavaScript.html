@@ -1254,4 +1254,52 @@ function openMyProfileModal() {
      if(cancelBtn) cancelBtn.classList.remove("hidden");
   }
 }
+
+function loadMoreUserHistory(total) {
+  const PAGE_SIZE = 5;
+  const activeEmail = (typeof CURRENT_USER_EMAIL !== "undefined" ? CURRENT_USER_EMAIL : (window && window.CURRENT_USER_EMAIL)) || "";
+  const activeRole = (typeof CURRENT_USER_ROLE !== "undefined" ? CURRENT_USER_ROLE : (window && window.CURRENT_USER_ROLE)) || "USER";
+  const tbody = document.getElementById("user-history-tbody");
+  const moreRow = document.getElementById("user-history-more-row");
+  const moreBtn = document.getElementById("load-more-history-btn") || document.getElementById("load-more-history-btn-fallback");
+  const adminApprovalTbody = document.getElementById("admin-approval-tbody");
+  if (!activeEmail || !tbody) return;
+
+  // UI lock
+  if (moreBtn) {
+    moreBtn.disabled = true;
+    moreBtn.dataset.origText = moreBtn.innerHTML || "";
+    moreBtn.innerText = "กำลังโหลด...";
+  }
+
+  // request full data
+  google.script.run
+    .withSuccessHandler(function(resAll) {
+      if (moreBtn) {
+        moreBtn.disabled = false;
+        if (moreBtn.dataset.origText) moreBtn.innerHTML = moreBtn.dataset.origText;
+      }
+      if (!resAll || !resAll.success || !Array.isArray(resAll.history)) {
+        showToast("ไม่สามารถโหลดข้อมูลทั้งหมดได้", "error");
+        return;
+      }
+      // render all
+      _renderHistoryRows(tbody, adminApprovalTbody, resAll.history, activeRole);
+
+      // ซ่อนปุ่มทั้ง tfoot และ fallback
+      if (moreRow) moreRow.classList.add("hidden");
+      const fb = document.getElementById('user-history-more-row-fallback');
+      if (fb) fb.remove();
+    })
+    .withFailureHandler(function(err) {
+      if (moreBtn) {
+        moreBtn.disabled = false;
+        if (moreBtn.dataset.origText) moreBtn.innerHTML = moreBtn.dataset.origText;
+      }
+      console.error("loadMoreUserHistory failed:", err);
+      showToast("ไม่สามารถโหลดข้อมูลทั้งหมดได้ (เกิดข้อผิดพลาด)", "error");
+    })
+    .getUserLoanHistory(activeEmail, activeRole, 1, total || (PAGE_SIZE * 1000), true);
+}
+
 </script>
