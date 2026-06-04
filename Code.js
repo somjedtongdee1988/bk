@@ -548,97 +548,212 @@ function getUserLoanHistory(username, role, page, pageSize) {
   } catch (e) { return { success: false, message: e.toString() }; }
 }
 
+/* เพิ่ม helper functions เพื่อประสิทธิภาพ I/O และ cache */
+function _openSS() {
+  return SpreadsheetApp.openById(SPREADSHEET_ID);
+}
+
+/* อ่านข้อมูลชีตโดยจำกัดแถวจริง (รวม header ถ้ามี) */
+function _readSheetAll(sheetName) {
+  const ss = _openSS();
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet) return { sheet: null, values: [] };
+  const lastRow = Math.max(1, sheet.getLastRow());
+  const lastCol = Math.max(1, sheet.getLastColumn());
+  if (lastRow === 1 && lastCol === 1 && !sheet.getRange(1,1).getValue()) return { sheet, values: [] };
+  const values = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+  return { sheet, values };
+}
+
+/* สร้างหรือดึง itemMap จาก CacheService (key -> itemName) */
+function _getItemMapCached(ttlSeconds) {
+  ttlSeconds = ttlSeconds || 300;
+  const cache = CacheService.getScriptCache();
+  const cacheKey = 'itemMap_v2';
+  let itemMap = {};
+  const cached = cache.get(cacheKey);
+  if (cached) {
+    try { itemMap = JSON.parse(cached); } catch (e) { itemMap = {}; }
+  }
+  if (!cached || Object.keys(itemMap).length === 0) {
+    const res = _readSheetAll('Items');
+    const itemData = res.values || [];
+    for (let i = 1; i < itemData.length; i++) {
+      if (!itemData[i] || !itemData[i][0]) continue;
+      itemMap[String(itemData[i][0]).trim()] = itemData[i][1] || "";
+    }
+    try { cache.put(cacheKey, JSON.stringify(itemMap), ttlSeconds); } catch (e) { /* ignore cache errors */ }
+  }
+  return itemMap;
+}
+
+/* ฟอร์แมตวันที่ปลอดภัย (ลดการเรียก Utilities.formatDate กระจัดกระจาย) */
+function _formatDateSafe(raw, tz, fmt) {
+  if (!raw) return "-";
+  const d = raw instanceof Date ? raw : new Date(raw);
+  try { return Utilities.formatDate(d, tz, fmt); } catch (e) { return d.toLocaleString(); }
+}
+
+/* ปรับปรุง getUserEmail ให้อ่านเฉพาะแถวที่มีข้อมูลจริง */
+function getUserEmail(username) {
+  try {
+    if (!username) return null;
+    const res = _readSheetAll('Users');
+    const data = res.values || [];
+    const target = username.toString().trim().toLowerCase();
+    for (let i = 1; i < data.length; i++) {
+      if (!data[i] || !data[i][0]) continue;
+      if (String(data[i][0]).trim().toLowerCase() === target) {
+        return data[i][4] || null;
+      }
+    }
+  } catch (error) {
+    Logger.log("Error ในการค้นหาอีเมล: " + error.toString());
+  }
+  return null;
+}
+
+/* ปรับปรุง getDashboardData ให้อ่านเฉพาะแถวจริงและลดการประมวลผลซ้ำ */
 function getDashboardData() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const itemSheet = ss.getSheetByName("Items");
-    const transSheet = ss.getSheetByName("Transactions");
-    const userSheet = ss.getSheetByName("Users");
-    const itemData = itemSheet.getDataRange().getValues();
-    const transData = transSheet.getDataRange().getValues();
-    const userData = userSheet.getDataRange().getValues();
-    const items = [];
-    let totalStock = 0; let borrowedCount = 0;
-    for (let i = 1; i < itemData.length; i++) {
-      if (!itemData[i][0]) continue;
-      const status = itemData[i][5];
-      const qty = parseInt(itemData[i][3]) || 0;
-      if (status !== "ชำรุด") {
-        totalStock += qty;
-      }
+    const itemRes = _readSheetAll("Items");
+    const transRes = _readSheetAll("Transactions");
+    const userRes = _readSheetAll("Users");
 
+    const itemData = itemRes.values || [];
+    const transData = transRes.values || [];
+    const userData = userRes.values || [];
+
+    const items = [];
+    let totalStock = 0;
+    let borrowedCount = 0;
+
+    for (let i = 1; i < itemData.length; i++) {
+      const row = itemData[i];
+      if (!row || !row[0]) continue;
+      const qty = parseInt(row[3]) || 0;
+      const status = row[5] || "";
+      if (status !== "ชำรุด") totalStock += qty;
       items.push({
-        id: itemData[i][0],
-        name: itemData[i][1],
-        type: itemData[i][2],
+        id: row[0],
+        name: row[1],
+        type: row[2],
         quantity: qty,
-        location: itemData[i][4],
+        location: row[4],
         status: status,
-        itemPic: itemData[i][6] || "",
-        qr: itemData[i][7] || `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${itemData[i][0]}`
+        itemPic: row[6] || "",
+        qr: row[7] || `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${row[0]}`
       });
     }
+
     const users = [];
     for (let k = 1; k < userData.length; k++) {
-      if (!userData[k][0]) continue;
+      if (!userData[k] || !userData[k][0]) continue;
       users.push({ username: userData[k][0], role: userData[k][1], password: userData[k][2] });
     }
-    let pendingReturnCount = 0;
-    let pendingApprovalCount = 0; 
 
+    let pendingReturnCount = 0;
+    let pendingApprovalCount = 0;
     for (let j = 1; j < transData.length; j++) {
-      if (transData[j][7] === "กำลังยืม") {
+      const row = transData[j];
+      if (!row || !row[7]) continue;
+      const status = row[7];
+      if (status === "กำลังยืม") {
         pendingReturnCount++;
-        borrowedCount += Number(transData[j][9] || 1);
-      }
-      if (transData[j][7] === "รออนุมัติ") {
+        borrowedCount += Number(row[9] || 1);
+      } else if (status === "รออนุมัติ") {
         pendingApprovalCount++;
       }
     }
-    return { summary: { total: items.filter(item => Number(item.quantity) > 0).length, available: totalStock, borrowed: borrowedCount, pendingReturn: pendingReturnCount, pendingApproval: pendingApprovalCount }, items: items, users: users };
-  } catch (error) { throw new Error(error.message); }
+
+    return {
+      summary: {
+        total: items.filter(item => Number(item.quantity) > 0).length,
+        available: totalStock,
+        borrowed: borrowedCount,
+        pendingReturn: pendingReturnCount,
+        pendingApproval: pendingApprovalCount
+      },
+      items: items,
+      users: users
+    };
+  } catch (error) {
+    throw new Error(error.message);
+  }
 }
 
+/* ปรับปรุง getExecutiveReportData ให้ใช้ itemMap ลดการค้นหาใหม่ ๆ */
 function getExecutiveReportData(filterType) {
   try {
     initDatabase();
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const transSheet = ss.getSheetByName("Transactions");
-    const itemSheet = ss.getSheetByName("Items");
-    const transData = transSheet.getDataRange().getValues();
-    const itemData = itemSheet.getDataRange().getValues();
+    const transRes = _readSheetAll("Transactions");
+    const itemRes = _readSheetAll("Items");
+    const transData = transRes.values || [];
+    const itemData = itemRes.values || [];
+
     const now = new Date();
-    let totalBorrowInRange = 0; let pendingReturnInRange = 0; let returnSuccessInRange = 0;
-    const locationStats = {}; const topItemsStats = {}; const itemInfoMap = {};
-    let totalItemsCount = 0; let availableCount = 0; let borrowedCount = 0;
+    let totalBorrowInRange = 0, pendingReturnInRange = 0, returnSuccessInRange = 0;
+    const locationStats = {}, topItemsStats = {}, itemInfoMap = {};
+    let totalItemsCount = 0, availableCount = 0, borrowedCount = 0;
 
     for (let k = 1; k < itemData.length; k++) {
-      if (!itemData[k][0]) continue;
+      const r = itemData[k];
+      if (!r || !r[0]) continue;
       totalItemsCount++;
-      if (itemData[k][5] === "พร้อมใช้งาน") availableCount++;
-      if (itemData[k][5] === "ถูกยืม") borrowedCount++;
-      itemInfoMap[itemData[k][0]] = { name: itemData[k][1], location: itemData[k][4] };
+      if (r[5] === "พร้อมใช้งาน") availableCount++;
+      if (r[5] === "ถูกยืม") borrowedCount++;
+      itemInfoMap[r[0]] = { name: r[1], location: r[4] || "ไม่ระบุตำแหน่ง" };
     }
+
     for (let i = 1; i < transData.length; i++) {
-      if (!transData[i][4]) continue;
-      const borrowDate = new Date(transData[i][4]);
+      const row = transData[i];
+      if (!row || !row[4]) continue;
+      const borrowDate = new Date(row[4]);
       let isMatch = false;
-      if (filterType === "WEEK") { const oneWeekAgo = new Date(); oneWeekAgo.setDate(now.getDate() - 7); if (borrowDate >= oneWeekAgo) isMatch = true; }
-      else if (filterType === "MONTH") { if (borrowDate.getMonth() === now.getMonth() && borrowDate.getFullYear() === now.getFullYear()) isMatch = true; }
-      else if (filterType === "YEAR") { if (borrowDate.getFullYear() === now.getFullYear()) isMatch = true; }
+      if (filterType === "WEEK") {
+        const oneWeekAgo = new Date(); oneWeekAgo.setDate(now.getDate() - 7);
+        if (borrowDate >= oneWeekAgo) isMatch = true;
+      } else if (filterType === "MONTH") {
+        if (borrowDate.getMonth() === now.getMonth() && borrowDate.getFullYear() === now.getFullYear()) isMatch = true;
+      } else if (filterType === "YEAR") {
+        if (borrowDate.getFullYear() === now.getFullYear()) isMatch = true;
+      } else {
+        isMatch = true;
+      }
 
       if (isMatch) {
         totalBorrowInRange++;
-        if (transData[i][7] === "กำลังยืม") pendingReturnInRange++;
-        if (transData[i][7] === "คืนแล้ว") returnSuccessInRange++;
-        const itemId = transData[i][1];
+        if (row[7] === "กำลังยืม") pendingReturnInRange++;
+        if (row[7] === "คืนแล้ว") returnSuccessInRange++;
+        const itemId = row[1];
         const itemInfo = itemInfoMap[itemId] || { name: "ไม่ทราบชื่อ", location: "ไม่ระบุตำแหน่ง" };
         topItemsStats[itemInfo.name] = (topItemsStats[itemInfo.name] || 0) + 1;
         locationStats[itemInfo.location] = (locationStats[itemInfo.location] || 0) + 1;
       }
     }
-    return { success: true, kpi: { totalItems: totalItemsCount, availableItems: availableCount, borrowedItems: borrowedCount, rangeBorrows: totalBorrowInRange, rangePending: pendingReturnInRange, rangeReturned: returnSuccessInRange }, charts: { locationLabels: Object.keys(locationStats), locationValues: Object.values(locationStats), itemLabels: Object.keys(topItemsStats), itemValues: Object.values(topItemsStats) } };
-  } catch (e) { return { success: false, message: e.toString() }; }
+
+    return {
+      success: true,
+      kpi: {
+        totalItems: totalItemsCount,
+        availableItems: availableCount,
+        borrowedItems: borrowedCount,
+        rangeBorrows: totalBorrowInRange,
+        rangePending: pendingReturnInRange,
+        rangeReturned: returnSuccessInRange
+      },
+      charts: {
+        locationLabels: Object.keys(locationStats),
+        locationValues: Object.values(locationStats),
+        itemLabels: Object.keys(topItemsStats),
+        itemValues: Object.values(topItemsStats)
+      }
+    };
+  } catch (e) {
+    return { success: false, message: e.toString() };
+  }
 }
 
 function saveItemData(mode, id, name, loc, stat, itemType, quantity, itemPicBase64) {
@@ -741,45 +856,50 @@ function deleteUserData(username) {
   } catch (e) { return { success: false, message: "เกิดข้อผิดพลาด: " + e.toString() }; }
 }
 
+/* ปรับ getAdminEmails ให้กรองและอ่านเฉพาะแถวจริง */
 function getAdminEmails() {
   try {
-    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const userSheet = ss.getSheetByName("Users");
-    if (!userSheet) return [];
-    const data = userSheet.getDataRange().getValues();
+    const res = _readSheetAll('Users');
+    const data = res.values || [];
     const adminEmails = [];
     for (let i = 1; i < data.length; i++) {
-      const role = String(data[i][1]).trim().toUpperCase();
-      // คัดกรองสิทธิ์: ดึงเฉพาะบทบาท ADMIN เท่านั้น ป้องกันปัญหาเมลตีกลับจากบัญชีจำลองของ Super Admin
-      if (role === "ADMIN" && data[i][4]) {
-        adminEmails.push(data[i][4].toString().trim());
-      }
+      const row = data[i];
+      if (!row || !row[0]) continue;
+      const role = String(row[1] || "").trim().toUpperCase();
+      const email = row[4] || "";
+      if (role === "ADMIN" && email) adminEmails.push(String(email).trim());
     }
+    if (adminEmails.length === 0) return [ADMIN_EMAIL_DEFAULT];
     return adminEmails;
-  } catch(err) {
+  } catch (err) {
     return [ADMIN_EMAIL_DEFAULT];
   }
 }
 
+/* ปรับปรุง borrowCartItems ให้อ่านแค่แถวจริงและตรวจสอบแบบ batch */
 function borrowCartItems(cartItems, borrowerName, borrowerEmail, borrowDateStr, dueDateStr, purpose) {
   try {
-    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const ss = _openSS();
     const itemSheet = ss.getSheetByName("Items");
     const transSheet = ss.getSheetByName("Transactions");
-    const itemRange = itemSheet.getDataRange();
-    const itemValues = itemRange.getValues();
-    
+
+    const lastItemRow = Math.max(1, itemSheet.getLastRow());
+    const lastItemCol = Math.max(1, itemSheet.getLastColumn());
+    const itemValues = lastItemRow >= 1 ? itemSheet.getRange(1, 1, lastItemRow, lastItemCol).getValues() : [];
+
     const nowTime = new Date();
     const bDate = new Date(borrowDateStr);
     bDate.setHours(nowTime.getHours(), nowTime.getMinutes(), nowTime.getSeconds());
-    
     const dDate = new Date(dueDateStr);
     const transId = "TX-" + nowTime.getTime();
 
     if (Math.ceil(Math.abs(dDate - bDate) / (1000 * 60 * 60 * 24)) > 30) return { success: false, message: "❌ ไม่อนุญาตให้ยืมเกิน 30 วัน" };
 
     const itemMap = {};
-    for (let i = 1; i < itemValues.length; i++) itemMap[itemValues[i][0].toString().trim()] = i;
+    for (let i = 1; i < itemValues.length; i++) {
+      if (!itemValues[i] || !itemValues[i][0]) continue;
+      itemMap[String(itemValues[i][0]).trim()] = i;
+    }
 
     for (let item of cartItems) {
       const idx = itemMap[item.id.trim()];
@@ -787,16 +907,17 @@ function borrowCartItems(cartItems, borrowerName, borrowerEmail, borrowDateStr, 
     }
 
     const newTrans = [];
-    let itemDetailsHtml = ""; 
-    
+    let itemDetailsHtml = "";
+
     for (let item of cartItems) {
       itemDetailsHtml += `<li>รหัสพัสดุ: ${item.id} | ชื่อพัสดุ: ${item.name} | จำนวน: ${item.qty} ชิ้น</li>`;
       newTrans.push([transId, item.id, borrowerName, borrowerEmail, bDate, dDate, "", "รออนุมัติ", purpose, item.qty]);
     }
 
-    if (newTrans.length > 0) transSheet.getRange(transSheet.getLastRow() + 1, 1, newTrans.length, newTrans[0].length).setValues(newTrans);
-    
-    // ส่งอีเมลแจ้งเตือนพัสดุรอการตรวจสอบเข้าสู่ระบบเมลของกลุ่มเจ้าหน้าที่ ADMIN ตัวจริง
+    if (newTrans.length > 0) {
+      transSheet.getRange(transSheet.getLastRow() + 1, 1, newTrans.length, newTrans[0].length).setValues(newTrans);
+    }
+
     const adminList = getAdminEmails();
     if (adminList.length > 0) {
       const emailSubject = `📢 มีคำขอยืมพัสดุครุภัณฑ์ใหม่รอการพิจารณาอนุมัติ [ธุรกรรม: ${transId}]`;
@@ -806,12 +927,11 @@ function borrowCartItems(cartItems, borrowerName, borrowerEmail, borrowDateStr, 
         <p><b>รายการพัสดุที่ขอยืม:</b></p>
         <ul>${itemDetailsHtml}</ul>
         <p>โปรดตรวจสอบและพิจารณาคำขอผ่านระบบ Web Application</p>`;
-      
-      adminList.forEach(email => {
-        try {
-          GmailApp.sendEmail(email, emailSubject, "", { htmlBody: emailBody });
-        } catch(mailErr) { Logger.log("Admin Mail Send Warning: " + mailErr.toString()); }
-      });
+
+      for (let email of adminList) {
+        try { GmailApp.sendEmail(email, emailSubject, "", { htmlBody: emailBody }); }
+        catch (mailErr) { Logger.log("Admin Mail Send Warning: " + mailErr.toString()); }
+      }
     }
 
     return { success: true, message: "🎉 ส่งคำขอยืมสำเร็จ! อยู่ระหว่างรอเจ้าหน้าที่ผู้ดูแลระบบพิจารณาอนุมัติ" };
