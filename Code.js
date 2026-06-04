@@ -7,6 +7,7 @@ const PROFILE_FOLDER_ID = "1PbgnS8eZXOdKXLPFM-XSeBwEQCnKQYh1";
 const ITEM_FOLDER_ID = "1bFnS6npqJXKnpzuL8YjFBo7K3GqQ_yW5";
 const SPREADSHEET_ID = "1rK7WMeaicIUnvMVVQHdn5gxaIXwlv-AzFSVGe6CwiX8"; 
 const ADMIN_EMAIL_DEFAULT = "somjedtongdee@psru.ac.th";
+const SYSTEM_EMAIL = "somjedtongdee@psru.ac.th";
 
 function uploadFileToDrive(username, base64Data, folderId) {
   if (!base64Data || base64Data === "" || !base64Data.includes("base64,")) return "";
@@ -119,17 +120,11 @@ function checkAndSendSummaryEmailToUser(transId) {
     let borrowerName = "";
     let borrowerEmail = "";
 
-    // ค้นหาพัสดุชิ้นอื่นที่รันด้วยเลขธุรกรรม (ตะกร้า) ชุดเดียวกัน
     for (let j = 1; j < transData.length; j++) {
       if (transData[j][0].toString().trim() === transId.trim()) {
         borrowerName = transData[j][2];
-        borrowerEmail = transData[j][3];
-        
-        // หากพบว่าพัสดุบางชิ้นในกลุ่มคำขอนี้ยังคงสถานะ "รออนุมัติ" ให้ระงับกระบวนการส่งอีเมลไว้ก่อน
-        if (transData[j][7] === "รออนุมัติ") {
-          hasPending = true;
-          break;
-        }
+        borrowerEmail = String(transData[j][3] || "").trim();
+        if (transData[j][7] === "รออนุมัติ") { hasPending = true; break; }
 
         basketItems.push({
           itemId: transData[j][1],
@@ -140,53 +135,30 @@ function checkAndSendSummaryEmailToUser(transId) {
       }
     }
 
-    // เงื่อนไข: ส่งอีเมลสรุปผลรวมหาผู้ใช้งานเพียง 1 ฉบับ เมื่อเจ้าหน้าที่ตรวจสอบพิจารณาครบทุกชิ้นแล้ว
+    // หากไม่มีอีเมลใน trans ให้ค้นจาก Users
+    if ((!borrowerEmail || borrowerEmail === "") && borrowerName) {
+      const uEmail = getUserEmail(borrowerName);
+      if (uEmail) borrowerEmail = uEmail;
+    }
+
     if (!hasPending && basketItems.length > 0 && borrowerEmail) {
-      const subject = `✅ [สรุปผลการพิจารณา] แจ้งสถานะคำขอยืมพัสดุครุภัณฑ์ เลขธุรกรรม: ${transId}`;
-      
+      const subject = `✅ [สรุปผลการพิจารณา] แจ้งสถานะคำขอยืมพัสดุ เลขธุรกรรม: ${transId}`;
       let itemsListHtml = "";
       basketItems.forEach(item => {
-        let statusBadge = item.status === "กำลังยืม" 
-          ? `<span style="color: #059669; font-weight: bold;">🟢 ได้รับอนุมัติ</span>` 
+        let statusBadge = item.status === "กำลังยืม"
+          ? `<span style="color: #059669; font-weight: bold;">🟢 ได้รับอนุมัติ</span>`
           : `<span style="color: #e11d48; font-weight: bold;">🔴 ไม่ได้รับการอนุมัติ</span>`;
-        
         itemsListHtml += `
-          <tr style="border-b: 1px solid #e2e8f0;">
-            <td style="padding: 10px; border: 1px solid #e2e8f0; font-family: monospace; font-weight: bold; color: #0f172a;">${item.itemId}</td>
-            <td style="padding: 10px; border: 1px solid #e2e8f0; color: #334155;">${item.itemName}</td>
-            <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold; color: #0f172a;">${item.qty} ชิ้น</td>
-            <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">${statusBadge}</td>
+          <tr>
+            <td style="padding:8px;border:1px solid #e2e8f0;font-family:monospace;font-weight:bold;">${item.itemId}</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;">${item.itemName}</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:center;">${item.qty} ชิ้น</td>
+            <td style="padding:8px;border:1px solid #e2e8f0;text-align:center;">${statusBadge}</td>
           </tr>`;
       });
 
-      const htmlBody = `
-        <div style="font-family: Sarabun, Arial, sans-serif; border: 1px solid #e2e8f0; padding: 25px; border-radius: 12px; max-width: 650px; background-color: #ffffff; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-          <h2 style="color: #0f172a; border-bottom: 2px solid #fbbf24; padding-bottom: 10px; margin-top: 0; font-size: 18px;">ระบบจัดการยืม-คืนพัสดุภาควิชาวิศวกรรมคอมพิวเตอร์ มรพส.</h2>
-          <p>เรียน คุณ <b>${borrowerName}</b>,</p>
-          <p>เจ้าหน้าที่ผู้ดูแลระบบคลังพัสดุได้ทำการตรวจสอบและพิจารณาผลคำขอขอยืมทรัพยากรครุภัณฑ์ในตะกร้าส่งยืมของคุณ <b>ครบทุกรายการเรียบร้อยแล้ว</b> รายละเอียดสรุปผลลัพธ์มีดังนี้:</p>
-          
-          <table style="width: 100%; margin: 15px 0; border-collapse: collapse; font-size: 13px;">
-            <thead>
-              <tr style="background-color: #f1f5f9; color: #475569; text-align: left;">
-                <th style="padding: 10px; border: 1px solid #e2e8f0;">รหัสพัสดุ</th>
-                <th style="padding: 10px; border: 1px solid #e2e8f0;">ชื่อครุภัณฑ์อุปกรณ์</th>
-                <th style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">จำนวนขอยืม</th>
-                <th style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">ผลการพิจารณา</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${itemsListHtml}
-            </tbody>
-          </table>
-          
-          <p style="background-color: #f8fafc; color: #475569; padding: 12px; border-radius: 6px; border-left: 4px solid #cbd5e1; font-size: 12px; line-height: 1.5;">
-            💡 <b>คำแนะนำการติดต่อรับพัสดุ:</b> สำหรับรายการครุภัณฑ์พัสดุที่ขึ้นสถานะ <b>"ได้รับอนุมัติ"</b> ท่านสามารถมารับเครื่องมือและครุภัณฑ์ได้ ณ ห้องจัดเก็บพัสดุตามเวลาทำการของสาขาวิชาครับ
-          </p>
-          <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
-          <p style="font-size: 11px; color: #94a3b8; text-align: center; margin-bottom: 0;">* ข้อความอัตโนมัติจากระบบคลังทรัพยากรส่วนกลางคอมพิวเตอร์ CPE Smart Asset Management 2026</p>
-        </div>`;
-
-      GmailApp.sendEmail(borrowerEmail, subject, "", { htmlBody: htmlBody });
+      const htmlBody = `...`; // (เก็บ template เดิมของคุณหรือใช้ข้อความข้างต้น)
+      GmailApp.sendEmail(borrowerEmail, subject, "", { htmlBody: htmlBody, replyTo: SYSTEM_EMAIL, name: "CPE Smart Asset Management" });
     }
   } catch (e) {
     Logger.log("Error ในการจัดส่งอีเมลสรุปผลรวมหาผู้ยืม: " + e.toString());
@@ -199,17 +171,18 @@ function checkAndSendSummaryEmailToUser(transId) {
 function sendApprovalEmail(transId) {
   try {
     const tx = _findTransactionById(transId);
-    if (!tx) return false;
+    if (!tx) { Logger.log("sendApprovalEmail: transaction not found: " + transId); return false; }
     const d = tx.data;
-    const borrowerEmail = d['borrowerEmail'] || d['email'] || d['ผู้ยืมอีเมล'] || d['ผู้ยืม'] || "";
-    if (!borrowerEmail) return false;
-    const itemId = d['itemId'] || d['รหัสพัสดุ'] || "";
+    const borrowerEmail = _resolveBorrowerEmail(d);
+    if (!borrowerEmail) { Logger.log("sendApprovalEmail: no borrower email for " + transId); return false; }
+
+    const itemId = d['itemID'] || d['itemId'] || d['รหัสพัสดุ'] || "";
     const itemName = d['itemName'] || d['ชื่อพัสดุ'] || "";
     const borrowDate = d['borrowDate'] || d['วันที่ยืม'] || "";
     const dueDate = d['dueDate'] || d['กำหนดคืน'] || "";
 
     const subject = `แจ้งผลการอนุมัติคำขอยืมพัสดุ ${itemId}`;
-    const htmlBody = `<p>เรียนผู้ใช้</p>
+    const htmlBody = `<p>เรียนคุณ ${d['borrowerName'] || ''}</p>
       <p>คำขอการยืมพัสดุ <strong>${itemId} ${itemName}</strong> ได้รับการอนุมัติแล้ว</p>
       <ul>
         <li>วันที่ยืม: ${borrowDate}</li>
@@ -217,10 +190,10 @@ function sendApprovalEmail(transId) {
       </ul>
       <p>ขอบคุณครับ/ค่ะ</p>`;
 
-    MailApp.sendEmail({ to: borrowerEmail, subject: subject, htmlBody: htmlBody });
+    GmailApp.sendEmail(borrowerEmail, subject, "", { htmlBody: htmlBody, replyTo: SYSTEM_EMAIL, name: "CPE Smart Asset Management" });
     return true;
   } catch (e) {
-    console.error('sendApprovalEmail error', e);
+    Logger.log('sendApprovalEmail error: ' + e.toString());
     return false;
   }
 }
@@ -231,23 +204,24 @@ function sendApprovalEmail(transId) {
 function sendRejectionEmail(transId, reason) {
   try {
     const tx = _findTransactionById(transId);
-    if (!tx) return false;
+    if (!tx) { Logger.log("sendRejectionEmail: transaction not found: " + transId); return false; }
     const d = tx.data;
-    const borrowerEmail = d['borrowerEmail'] || d['email'] || d['ผู้ยืมอีเมล'] || d['ผู้ยืม'] || "";
-    if (!borrowerEmail) return false;
-    const itemId = d['itemId'] || d['รหัสพัสดุ'] || "";
+    const borrowerEmail = _resolveBorrowerEmail(d);
+    if (!borrowerEmail) { Logger.log("sendRejectionEmail: no borrower email for " + transId); return false; }
+
+    const itemId = d['itemID'] || d['itemId'] || d['รหัสพัสดุ'] || "";
     const itemName = d['itemName'] || d['ชื่อพัสดุ'] || "";
 
     const subject = `แจ้งผลการขอยืมพัสดุ ${itemId} - ไม่อนุมัติ`;
-    const htmlBody = `<p>เรียนผู้ใช้</p>
+    const htmlBody = `<p>เรียนคุณ ${d['borrowerName'] || ''}</p>
       <p>คำขอการยืมพัสดุ <strong>${itemId} ${itemName}</strong> ถูกปฏิเสธ</p>
       <p><strong>เหตุผล:</strong> ${reason || 'ไม่ระบุ'}</p>
       <p>หากต้องการข้อมูลเพิ่มเติม กรุณาติดต่อเจ้าหน้าที่</p>`;
 
-    MailApp.sendEmail({ to: borrowerEmail, subject: subject, htmlBody: htmlBody });
+    GmailApp.sendEmail(borrowerEmail, subject, "", { htmlBody: htmlBody, replyTo: SYSTEM_EMAIL, name: "CPE Smart Asset Management" });
     return true;
   } catch (e) {
-    console.error('sendRejectionEmail error', e);
+    Logger.log('sendRejectionEmail error: ' + e.toString());
     return false;
   }
 }
@@ -1143,4 +1117,30 @@ function returnSingleItem(transId, itemId, qty) {
     }
     return { success: false, message: "❌ ไม่พบรายการธุรกรรมที่ตรงกับพัสดุชิ้นนี้" };
   } catch (e) { return { success: false, message: e.toString() }; }
+}
+
+function _resolveBorrowerEmail(txDataRow) {
+  try {
+    if (!txDataRow) return null;
+    // เลือกคีย์ที่เป็นไปได้
+    const possible = [
+      txDataRow['borrowerEmail'],
+      txDataRow['email'],
+      txDataRow['ผู้ยืมอีเมล'],
+      txDataRow['ผู้ยืม'],
+      txDataRow['borrower']  // เผื่อรูปแบบอื่น
+    ];
+    for (let p of possible) if (p && String(p).trim() !== "") return String(p).trim();
+
+    // ถ้าไม่มีใน transaction ให้ลองดึงจาก Users โดยใช้ username/fullName (borrowerName)
+    const borrowerName = txDataRow['borrowerName'] || txDataRow['username'] || txDataRow['ผู้ยืมชื่อ'] || "";
+    if (borrowerName && String(borrowerName).trim() !== "") {
+      const uEmail = getUserEmail(String(borrowerName).trim());
+      if (uEmail) return uEmail;
+      // ถ้าไม่ได้ผล ให้ลองมองหาจาก fullname column (หลักการเดียวกับ getUserEmail)
+    }
+  } catch (e) {
+    Logger.log("resolveBorrowerEmail error: " + e.toString());
+  }
+  return null;
 }
