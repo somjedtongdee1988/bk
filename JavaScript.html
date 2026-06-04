@@ -427,6 +427,7 @@ function _renderHistoryRows(tbody, adminApprovalTbody, rows, activeRole) {
 
 /* แก้ไข loadUserHistoryData ให้เรนเดอร์ 5 รายการแรก และแสดงปุ่ม "ดูเพิ่มเติมทั้งหมด" เมื่อจำเป็น */
 function loadUserHistoryData() {
+  const PAGE_SIZE = 5; // กำหนดที่นี่ก่อนเรียก google.script.run เพื่อป้องกัน ReferenceError
   const activeEmail = (typeof CURRENT_USER_EMAIL !== "undefined" ? CURRENT_USER_EMAIL : (window && window.CURRENT_USER_EMAIL)) || "";
   const activeRole = (typeof CURRENT_USER_ROLE !== "undefined" ? CURRENT_USER_ROLE : (window && window.CURRENT_USER_ROLE)) || "USER";
 
@@ -471,7 +472,6 @@ function loadUserHistoryData() {
       }
 
       // แสดงเฉพาะ PAGE_SIZE แรกบนตาราง (UI ต้องการ 5 รายการเริ่มต้น)
-      const PAGE_SIZE = 5;
       const initialRows = rows.slice(0, PAGE_SIZE);
       _renderHistoryRows(tbody, adminApprovalTbody, initialRows, activeRole);
 
