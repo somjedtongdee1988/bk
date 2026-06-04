@@ -430,21 +430,22 @@ function _renderHistoryRows(tbody, adminApprovalTbody, rows, activeRole) {
 // ให้ตัวแปรสถานะอยู่ระดับ global ของหน้า
 window.USER_HISTORY_EXPANDED = window.USER_HISTORY_EXPANDED || false;
 
+// แสดง 5 รายการล่าสุดเป็นค่าเริ่มต้น และเตรียมปุ่ม "ดูเพิ่มเติมทั้งหมด"
 function loadUserHistoryData() {
   const PAGE_SIZE = 5;
   window.USER_HISTORY_EXPANDED = false;
+
   const activeEmail = (typeof CURRENT_USER_EMAIL !== "undefined" ? CURRENT_USER_EMAIL : (window && window.CURRENT_USER_EMAIL)) || "";
   const activeRole = (typeof CURRENT_USER_ROLE !== "undefined" ? CURRENT_USER_ROLE : (window && window.CURRENT_USER_ROLE)) || "USER";
-
   const tbody = document.getElementById("user-history-tbody");
   const moreRow = document.getElementById("user-history-more-row");
   const moreBtn = document.getElementById("load-more-history-btn");
   const adminApprovalTbody = document.getElementById("admin-approval-tbody");
-  const fb = document.getElementById('user-history-more-row-fallback');
+  const fbFallback = document.getElementById("user-history-more-row-fallback");
 
   if (!tbody) return;
   if (moreRow) moreRow.classList.add("hidden");
-  if (fb) fb.remove();
+  if (fbFallback) fbFallback.remove();
   if (adminApprovalTbody) adminApprovalTbody.innerHTML = "";
 
   if (!activeEmail) {
@@ -452,8 +453,7 @@ function loadUserHistoryData() {
     return;
   }
 
-  let timeoutId = setTimeout(function() {
-    console.warn("getUserLoanHistory timed out.");
+  let timeoutId = setTimeout(() => {
     if (tbody && tbody.innerHTML.trim() === "") {
       tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400 bg-gray-50/50">ไม่สามารถเรียกข้อมูลได้ กรุณาลองใหม่</td></tr>`;
     }
@@ -463,7 +463,6 @@ function loadUserHistoryData() {
   google.script.run
     .withSuccessHandler(function(res) {
       clearTimeout(timeoutId);
-      console.log("getUserLoanHistory res:", res);
       if (!res || !res.success) {
         tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400 bg-gray-50/50">เกิดข้อผิดพลาดในการโหลดข้อมูล</td></tr>`;
         if (moreRow) moreRow.classList.add("hidden");
@@ -478,33 +477,29 @@ function loadUserHistoryData() {
         return;
       }
 
-      // แสดงเฉพาะ PAGE_SIZE แรก
+      // แสดงเฉพาะ 5 รายการล่าสุด (initial)
       const initialRows = rows.slice(0, PAGE_SIZE);
       _renderHistoryRows(tbody, adminApprovalTbody, initialRows, activeRole);
 
+      // เงื่อนไขการแสดงปุ่ม: server แจ้ง hasMore / total > shown / หรือได้ครบหน้า (fallback) / หรือ total === PAGE_SIZE (ให้กดดูทั้งหมดได้)
       const hasMoreFlag = (typeof res.hasMore !== "undefined") ? !!res.hasMore : undefined;
       const totalFromServer = (typeof res.total === "number") ? res.total : null;
-      const totalToRequest = (totalFromServer !== null) ? totalFromServer : Math.max(rows.length, PAGE_SIZE);
-
-      // แสดงปุ่มเมื่อมีเหตุผลเพียงพอ
       const shouldShowMore = (hasMoreFlag === true)
                           || (totalFromServer !== null && totalFromServer > rows.length)
                           || (typeof hasMoreFlag === "undefined" && rows.length >= PAGE_SIZE)
                           || (totalFromServer !== null && totalFromServer === PAGE_SIZE && rows.length >= PAGE_SIZE);
 
       if (shouldShowMore) {
+        // ถ้ามี tfoot ใช้ tfoot
         if (moreRow) {
           moreRow.classList.remove("hidden");
           if (moreBtn) {
-            moreBtn.onclick = null;
             moreBtn.disabled = false;
             moreBtn.innerText = "🔎 ดูเพิ่มเติมทั้งหมด";
-            moreBtn.onclick = function () {
-              toggleLoadMore(totalToRequest);
-            };
+            moreBtn.onclick = function() { toggleLoadMore(); };
           }
         } else {
-          // fallback: สร้างปุ่มใต้ตารางถ้า tfoot หาย/invalid
+          // fallback สร้างปุ่มใต้ตาราง
           const table = tbody.closest('table') || document.getElementById('user-history-table');
           if (table) {
             let fallback = document.getElementById('user-history-more-row-fallback');
@@ -520,9 +515,7 @@ function loadUserHistoryData() {
             if (fbBtn) {
               fbBtn.disabled = false;
               fbBtn.innerText = "🔎 ดูเพิ่มเติมทั้งหมด";
-              fbBtn.onclick = function() {
-                toggleLoadMore(totalToRequest);
-              };
+              fbBtn.onclick = function() { toggleLoadMore(); };
             }
           }
         }
@@ -534,7 +527,6 @@ function loadUserHistoryData() {
     })
     .withFailureHandler(function(err) {
       clearTimeout(timeoutId);
-      console.error("getUserLoanHistory failed:", err);
       tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400 bg-gray-50/50">ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้</td></tr>`;
       if (moreRow) moreRow.classList.add("hidden");
       if (adminApprovalTbody) adminApprovalTbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400 bg-gray-50/50">ไม่สามารถโหลดคำขออนุมัติได้</td></tr>`;
@@ -542,7 +534,7 @@ function loadUserHistoryData() {
     .getUserLoanHistory(activeEmail, activeRole, 1, PAGE_SIZE, false);
 }
 
-  // [TARGET FIX] เปลี่ยนกระบวนการยืนยันหน้าบ้านมาใช้ SweetAlert2 ทั้งหมด มั่นใจได้ว่าไม่มี URL ยืดยาวและแอปพลิเคชันไม่ค้าง 100%
+   // [TARGET FIX] เปลี่ยนกระบวนการยืนยันหน้าบ้านมาใช้ SweetAlert2 ทั้งหมด มั่นใจได้ว่าไม่มี URL ยืดยาวและแอปพลิเคชันไม่ค้าง 100%
   function executeApproveAction(transId, itemId) {
     Swal.fire({
       title: 'อนุมัติการยืมพัสดุ?',
@@ -1263,13 +1255,12 @@ function openMyProfileModal() {
   }
 }
 
-function loadMoreUserHistory(total) {
-  console.log("loadMoreUserHistory -> delegate to toggleLoadMore, total:", total);
-  toggleLoadMore(total);
+// เรียกขยาย — โหลดทุกรายการ (ใช้ EXPAND_PAGE_SIZE เสมอ) แล้วเปลี่ยนปุ่มเป็น "ย่อรายการ"
+function loadMoreUserHistory() {
+  toggleLoadMore();
 }
 
-/* Toggle helper: ถ้ายังย่อ -> ดึงข้อมูลทั้งหมดและเปลี่ยนปุ่มเป็น "ย่อรายการ" ถ้ากำลังขยาย -> เรียก loadUserHistoryData เพื่อกลับสู่ย่อ */
-function toggleLoadMore(total) {
+function toggleLoadMore() {
   const moreBtn = document.getElementById("load-more-history-btn");
   const fbBtn = document.getElementById("load-more-history-btn-fallback");
   const PAGE_SIZE = 5;
@@ -1280,14 +1271,12 @@ function toggleLoadMore(total) {
   if (!tbody || !activeEmail) return;
 
   if (!window.USER_HISTORY_EXPANDED) {
-    // expand -> always request large pageSize (EXPAND_PAGE_SIZE) and full=true
+    // expand -> request full with EXPAND_PAGE_SIZE
     if (moreBtn) { moreBtn.disabled = true; moreBtn.dataset.origText = moreBtn.innerHTML || ""; moreBtn.innerText = "กำลังโหลด..."; }
     if (fbBtn) { fbBtn.disabled = true; fbBtn.dataset.origText = fbBtn.innerHTML || ""; fbBtn.innerText = "กำลังโหลด..."; }
 
-    console.log("toggleLoadMore -> requesting full history, total param:", total);
     google.script.run
       .withSuccessHandler(function(resAll) {
-        console.log("toggleLoadMore resAll:", resAll);
         if (moreBtn) { moreBtn.disabled = false; }
         if (fbBtn) { fbBtn.disabled = false; }
         if (!resAll || !resAll.success || !Array.isArray(resAll.history)) {
@@ -1295,83 +1284,22 @@ function toggleLoadMore(total) {
           return;
         }
 
-        // render ทั้งหมด
         _renderHistoryRows(tbody, adminApprovalTbody, resAll.history, activeRole);
         window.USER_HISTORY_EXPANDED = true;
 
-        // เปลี่ยนปุ่มเป็นย่อ (ทั้ง tfoot และ fallback)
         const newLabel = "▲ ย่อรายการ";
-        if (moreBtn) { moreBtn.innerHTML = newLabel; moreBtn.onclick = function() { loadUserHistoryData(); }; }
-        if (fbBtn) { fbBtn.innerHTML = newLabel; fbBtn.onclick = function() { loadUserHistoryData(); }; }
+        if (moreBtn) { moreBtn.innerText = newLabel; moreBtn.onclick = function() { loadUserHistoryData(); }; }
+        if (fbBtn) { fbBtn.innerText = newLabel; fbBtn.onclick = function() { loadUserHistoryData(); }; }
       })
       .withFailureHandler(function(err) {
-        console.error("toggleLoadMore failed:", err);
         if (moreBtn) { moreBtn.disabled = false; if (moreBtn.dataset.origText) moreBtn.innerHTML = moreBtn.dataset.origText; }
         if (fbBtn) { fbBtn.disabled = false; if (fbBtn.dataset.origText) fbBtn.innerHTML = fbBtn.dataset.origText; }
         showToast("ไม่สามารถโหลดข้อมูลทั้งหมดได้ (เกิดข้อผิดพลาด)", "error");
       })
       .getUserLoanHistory(activeEmail, activeRole, 1, EXPAND_PAGE_SIZE, true);
   } else {
-    // collapse -> โหลดแบบย่อใหม่
+    // collapse -> โหลด 5 รายการล่าสุด อีกครั้ง
     window.USER_HISTORY_EXPANDED = false;
-    loadUserHistoryData();
-  }
-}
-
-/* Toggle helper: ถ้ายังย่อ -> โหลดทั้งหมดและเปลี่ยนปุ่มเป็น "ย่อรายการ" ถ้ากำลังขยาย -> เรียก loadUserHistoryData เพื่อกลับสู่ย่อ */
-function toggleLoadMore(total) {
-  const moreBtn = document.getElementById("load-more-history-btn");
-  const fbBtn = document.getElementById("load-more-history-btn-fallback");
-
-  if (!window.USER_HISTORY_EXPANDED) {
-    // expand: ดึงข้อมูลทั้งหมด (full=true)
-    const PAGE_SIZE = 5;
-    const activeEmail = (typeof CURRENT_USER_EMAIL !== "undefined" ? CURRENT_USER_EMAIL : (window && window.CURRENT_USER_EMAIL)) || "";
-    const activeRole = (typeof CURRENT_USER_ROLE !== "undefined" ? CURRENT_USER_ROLE : (window && window.CURRENT_USER_ROLE)) || "USER";
-    const tbody = document.getElementById("user-history-tbody");
-    const adminApprovalTbody = document.getElementById("admin-approval-tbody");
-    if (!activeEmail || !tbody) return;
-
-    if (moreBtn) {
-      moreBtn.disabled = true;
-      moreBtn.dataset.origText = moreBtn.innerHTML || "";
-      moreBtn.innerText = "กำลังโหลด...";
-    }
-    if (fbBtn) {
-      fbBtn.disabled = true;
-      fbBtn.dataset.origText = fbBtn.innerHTML || "";
-      fbBtn.innerText = "กำลังโหลด...";
-    }
-
-    google.script.run.withSuccessHandler(function(resAll) {
-      if (moreBtn) { moreBtn.disabled = false; }
-      if (fbBtn) { fbBtn.disabled = false; }
-      if (!resAll || !resAll.success || !Array.isArray(resAll.history)) {
-        showToast("ไม่สามารถโหลดข้อมูลทั้งหมดได้", "error");
-        return;
-      }
-      // render ทั้งหมด
-      _renderHistoryRows(document.getElementById("user-history-tbody"), document.getElementById("admin-approval-tbody"), resAll.history, (typeof CURRENT_USER_ROLE !== "undefined" ? CURRENT_USER_ROLE : (window && window.CURRENT_USER_ROLE)) || "USER");
-      window.USER_HISTORY_EXPANDED = true;
-
-      // เปลี่ยนปุ่มเป็นย่อ
-      const newLabel = "▲ ย่อรายการ";
-      if (moreBtn) {
-        moreBtn.innerText = newLabel;
-        moreBtn.onclick = function() { loadUserHistoryData(); }; // ย้อนกลับไปหน้าแรก (ย่อ)
-      }
-      if (fbBtn) {
-        fbBtn.innerText = newLabel;
-        fbBtn.onclick = function() { loadUserHistoryData(); };
-      }
-    }).withFailureHandler(function(err) {
-      if (moreBtn) { moreBtn.disabled = false; if (moreBtn.dataset.origText) moreBtn.innerHTML = moreBtn.dataset.origText; }
-      if (fbBtn) { fbBtn.disabled = false; if (fbBtn.dataset.origText) fbBtn.innerHTML = fbBtn.dataset.origText; }
-      console.error("loadAll history failed:", err);
-      showToast("ไม่สามารถโหลดข้อมูลทั้งหมดได้ (เกิดข้อผิดพลาด)", "error");
-    }).getUserLoanHistory((typeof CURRENT_USER_EMAIL !== "undefined" ? CURRENT_USER_EMAIL : (window && window.CURRENT_USER_EMAIL)) || "", (typeof CURRENT_USER_ROLE !== "undefined" ? CURRENT_USER_ROLE : (window && window.CURRENT_USER_ROLE)) || "USER", 1, total || (PAGE_SIZE * 1000), true);
-  } else {
-    // ถ้ากำลังขยายอยู่ ให้กลับสู่หน้าแรก (ย่อ)
     loadUserHistoryData();
   }
 }
