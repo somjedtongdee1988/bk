@@ -267,85 +267,51 @@ function sendRejectionEmail(transId, reason) {
  * @param {string} status - สถานะ ('approved' หรือ 'rejected')
  */
 function sendApprovalEmailToUser(username, itemCode, itemName, status) {
-  var userEmail = getUserEmail(username);
-  
-  if (!userEmail) {
-    Logger.log("ไม่สามารถส่งอีเมลได้ เนื่องจากไม่พบอีเมลสำหรับ username: " + username);
-    return;
-  }
-  
-  var subject = "";
-  var statusText = "";
-  var statusColor = "";
-  var noteText = "";
-  
-  if (status === "approved" || status === "อนุมัติ") {
-    subject = "✅ [อนุมัติ] ผลการคำขอยืมพัสดุระบบ CPE มรพส.";
-    statusText = "ได้รับการอนุมัติ";
-    statusColor = "#28a745"; // สีเขียว
-    noteText = "กรุณานำหลักฐานหรือติดต่อรับพัสดุ ณ ห้องปฏิบัติการคอมพิวเตอร์ตามเวลาที่กำหนด";
-  } else {
-    subject = "❌ [ปฏิเสธ] ผลการคำขอยืมพัสดุระบบ CPE มรพส.";
-    statusText = "ปฏิเสธการอนุมัติ / ไม่ได้รับอนุมัติ";
-    statusColor = "#dc3545"; // สีแดง
-    noteText = "หากมีข้อสงสัยประการใด กรุณาติดต่อผู้ดูแลระบบหรือเจ้าหน้าที่ประจำห้องปฏิบัติการ";
-  }
-  
-function _findTransactionById(transId) {
-  const ss = SpreadsheetApp.getActive();
-  const sh = ss.getSheetByName('Transactions');
-  if (!sh) return null;
-  const lastRow = sh.getLastRow();
-  const lastCol = sh.getLastColumn();
-  if (lastRow < 2) return null;
-  const headers = sh.getRange(1, 1, 1, lastCol).getValues()[0];
-  const vals = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
-  for (let i = 0; i < vals.length; i++) {
-    if (String(vals[i][0]) === String(transId)) { // assume transId in col A
-      const obj = {};
-      for (let c = 0; c < headers.length; c++) obj[headers[c]] = vals[i][c];
-      return { sheet: sh, row: i + 2, data: obj, headers: headers };
+  try {
+    const userEmail = getUserEmail(username);
+    if (!userEmail) {
+      Logger.log("sendApprovalEmailToUser: no email for username=" + username);
+      return false;
     }
-  }
-  return null;
-}
 
-  // สร้างเนื้อหาอีเมลแบบ HTML ให้สวยงามและเป็นทางการ
-  var htmlBody = `
-    <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 20px; color: #333; max-width: 600px; border: 1px solid #e0e0e0; border-radius: 5px;">
-      <h2 style="color: #0056b3; border-bottom: 2px solid #0056b3; padding-bottom: 10px;">แจ้งเตือนสถานะการยืมพัสดุ</h2>
-      <p>สวัสดีคุณ <b>${username}</b>,</p>
-      <p>เจ้าหน้าที่ได้ตรวจสอบและพิจารณาคำขอขอยืมพัสดุของคุณเรียบร้อยแล้ว โดยมีรายละเอียดดังนี้:</p>
-      
-      <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-        <tr style="background-color: #f8f9fa;">
-          <td style="padding: 10px; border: 1px solid #dee2e6; font-weight: bold; width: 30%;">รหัสพัสดุ:</td>
-          <td style="padding: 10px; border: 1px solid #dee2e6;">${itemCode}</td>
-        </tr>
-        <tr>
-          <td style="padding: 10px; border: 1px solid #dee2e6; font-weight: bold;">ชื่อพัสดุ:</td>
-          <td style="padding: 10px; border: 1px solid #dee2e6;">${itemName}</td>
-        </tr>
-        <tr style="background-color: #f8f9fa;">
-          <td style="padding: 10px; border: 1px solid #dee2e6; font-weight: bold;">สถานะผลการยืม:</td>
-          <td style="padding: 10px; border: 1px solid #dee2e6; color: ${statusColor}; font-weight: bold; font-size: 1.1em;">${statusText}</td>
-        </tr>
-      </table>
-      
-      <p style="background-color: #fff3cd; color: #856404; padding: 10px; border-radius: 3px; border-left: 5px solid #ffeeba;">
-        📌 <b>หมายเหตุ:</b> ${noteText}
-      </p>
-      
-      <hr style="border: 0; border-top: 1px solid #e0e0e0; margin-top: 30px;">
-      <p style="font-size: 0.85em; color: #6c757d; text-align: center;">ระบบจัดการยืม-คืนพัสดุภาควิชาวิศวกรรมคอมพิวเตอร์ มหาวิทยาลัยราชภัฏพิบูลสงคราม</p>
-    </div>
-  `;
-  
-  MailApp.sendEmail({
-    to: userEmail,
-    subject: subject,
-    htmlBody: htmlBody
-  });
+    var subject = "";
+    var statusText = "";
+    var statusColor = "";
+    var noteText = "";
+
+    if (status === "approved" || status === "อนุมัติ") {
+      subject = "✅ [อนุมัติ] ผลการคำขอยืมพัสดุระบบ CPE มรพส.";
+      statusText = "ได้รับการอนุมัติ";
+      statusColor = "#28a745";
+      noteText = "กรุณาติดต่อรับพัสดุตามประกาศของเจ้าหน้าที่";
+    } else {
+      subject = "❌ [ปฏิเสธ] ผลการคำขอยืมพัสดุระบบ CPE มรพส.";
+      statusText = "ปฏิเสธการอนุมัติ";
+      statusColor = "#dc3545";
+      noteText = "หากมีข้อสงสัยกรุณาติดต่อเจ้าหน้าที่คลังพัสดุ";
+    }
+
+    var htmlBody = `
+      <div style="font-family: Arial,Helvetica,sans-serif; padding:16px; color:#333; max-width:680px;">
+        <h3 style="color:#0b5394;">แจ้งเตือนสถานะการยืมพัสดุ</h3>
+        <p>สวัสดีคุณ <b>${username}</b></p>
+        <table style="width:100%; border-collapse:collapse; margin:12px 0;">
+          <tr><td style="padding:8px; border:1px solid #e5e7eb; font-weight:bold; width:30%;">รหัสพัสดุ</td><td style="padding:8px; border:1px solid #e5e7eb;">${itemCode}</td></tr>
+          <tr><td style="padding:8px; border:1px solid #e5e7eb; font-weight:bold;">ชื่อพัสดุ</td><td style="padding:8px; border:1px solid #e5e7eb;">${itemName}</td></tr>
+          <tr><td style="padding:8px; border:1px solid #e5e7eb; font-weight:bold;">ผลการพิจารณา</td><td style="padding:8px; border:1px solid #e5e7eb; color:${statusColor}; font-weight:bold;">${statusText}</td></tr>
+        </table>
+        <p style="background:#fff3cd;padding:10px;border-radius:4px;color:#856404;">${noteText}</p>
+        <p style="font-size:0.85em;color:#6b7280;">ระบบ CPE Smart Asset Management</p>
+      </div>
+    `;
+
+    GmailApp.sendEmail(userEmail, subject, "", { htmlBody: htmlBody, replyTo: SYSTEM_EMAIL, name: "CPE Smart Asset Management" });
+    Logger.log("sendApprovalEmailToUser: sent to " + userEmail + " (username=" + username + ")");
+    return true;
+  } catch (e) {
+    Logger.log("sendApprovalEmailToUser error: " + e.toString());
+    return false;
+  }
 }
 
 /**
