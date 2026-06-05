@@ -169,8 +169,8 @@ function checkAndSendSummaryEmailToUser(transId) {
     let rowsHtml = "";
     basketItems.forEach(it => {
       const badge = (it.status === "กำลังยืม") 
-        ? `<span style="color:#059669;font-weight:bold;">🟢 อนุมัติ</span>` 
-        : `<span style="color:#e11d48;font-weight:bold;">🔴 ไม่อนุมัติ</span>`;
+        ? `<span style="color:#059669;font-weight:bold;">✅ อนุมัติ</span>` 
+        : `<span style="color:#e11d48;font-weight:bold;">❌ ไม่อนุมัติ</span>`;
       rowsHtml += `<tr>
         <td style="padding:8px;border:1px solid #e2e8f0;font-family:monospace;">${it.itemId}</td>
         <td style="padding:8px;border:1px solid #e2e8f0;">${it.itemName}</td>
@@ -198,7 +198,7 @@ function checkAndSendSummaryEmailToUser(transId) {
             ${rowsHtml}
           </tbody>
         </table>
-        <p style="margin-top:12px;">หากได้รับอนุมัติ กรุณาติดต่อเจ้าหน้าที่เพื่อนัดรับพัสดุ</p>
+        <p style="margin-top:12px;">หากได้รับอนุมัติ กรุณาติดต่อเจ้าหน้าที่เพื่อนัดรับพัสดุ (นายสมเจตน์ ทองดี) โทร.081-673-8958</p>
         <p style="color:#6b7280;font-size:0.9em;">ระบบ CPE Smart Asset Management</p>
       </div>
     `;
@@ -1052,13 +1052,13 @@ function borrowCartItems(cartItems, borrowerName, borrowerEmail, borrowDateStr, 
 
     const adminList = getAdminEmails();
     if (adminList.length > 0) {
-      const emailSubject = `📢 มีคำขอยืมพัสดุครุภัณฑ์ใหม่รอการพิจารณาอนุมัติ [ธุรกรรม: ${transId}]`;
+      const emailSubject = `🔊 คำขอยืมพัสดุครุภัณฑ์ใหม่รอการพิจารณาอนุมัติ [ธุรกรรม: ${transId}]`;
       const emailBody = `<h3>ระบบยืม-คืนพัสดุอัจฉริยะ CPE มรพส.</h3>
         <p><b>ผู้ขอส่งคำยืม:</b> ${borrowerName} (${resolvedUsername}) ${resolvedEmail ? "(" + resolvedEmail + ")" : ""}</p>
         <p><b>วัตถุประสงค์:</b> ${purpose}</p>
         <p><b>รายการพัสดุที่ขอยืม:</b></p>
         <ul>${itemDetailsHtml}</ul>
-        <p>โปรดตรวจสอบและพิจารณาคำขอผ่านระบบ Web Application</p>`;
+        <p>โปรดตรวจสอบและพิจารณาคำขอผ่านระบบ ระบบยืม-คืนพัสดุอัจฉริยะ CPE มรพส.</p>`;
 
       for (let email of adminList) {
         try { GmailApp.sendEmail(email, emailSubject, "", { htmlBody: emailBody }); }
