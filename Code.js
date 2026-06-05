@@ -1052,7 +1052,7 @@ function borrowCartItems(cartItems, borrowerName, borrowerEmail, borrowDateStr, 
 
     const adminList = getAdminEmails();
     if (adminList.length > 0) {
-      const emailSubject = `🔊 คำขอยืมพัสดุครุภัณฑ์ใหม่รอการพิจารณาอนุมัติ [ธุรกรรม: ${transId}]`;
+      const emailSubject = `คำขอยืมพัสดุครุภัณฑ์ใหม่รอการพิจารณาอนุมัติ [ธุรกรรม: ${transId}]`;
       const emailBody = `<h3>ระบบยืม-คืนพัสดุอัจฉริยะ CPE มรพส.</h3>
         <p><b>ผู้ขอส่งคำยืม:</b> ${borrowerName} (${resolvedUsername}) ${resolvedEmail ? "(" + resolvedEmail + ")" : ""}</p>
         <p><b>วัตถุประสงค์:</b> ${purpose}</p>
