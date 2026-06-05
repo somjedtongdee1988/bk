@@ -37,7 +37,8 @@ function initDatabase() {
   }
   if (!ss.getSheetByName("Transactions")) {
     const transSheet = ss.insertSheet("Transactions");
-    transSheet.appendRow(["transID", "itemID", "borrowerName", "borrowerEmail", "borrowDate", "dueDate", "returnDate", "status", "purpose", "borrowQty"]);
+    // เพิ่มคอลัมน์ K (col 11) สำหรับเก็บ Email ผู้ยืม (ใช้ส่งเมลจากคอลัมน์ K)
+    transSheet.appendRow(["transID","itemID","borrowerName","borrowerEmail","borrowDate","dueDate","returnDate","status","purpose","borrowQty","borrowerEmail_K"]);
   }
   if (!ss.getSheetByName("Users")) {
     const userSheet = ss.insertSheet("Users");
@@ -134,7 +135,7 @@ function checkAndSendSummaryEmailToUser(transId) {
     for (let j = 1; j < transData.length; j++) {
       if (transData[j][0].toString().trim() === transId.trim()) {
         borrowerName = transData[j][2];
-        borrowerEmail = String(transData[j][3] || "").trim();
+        borrowerEmail = String(transData[j][10] || "").trim(); // col K
         if (transData[j][7] === "รออนุมัติ") { hasPending = true; break; }
 
         basketItems.push({
@@ -146,7 +147,6 @@ function checkAndSendSummaryEmailToUser(transId) {
       }
     }
 
-    // หากไม่มีอีเมลใน trans ให้ค้นจาก Users
     if ((!borrowerEmail || borrowerEmail === "") && borrowerName) {
       const uEmail = getUserEmail(borrowerName);
       if (uEmail) borrowerEmail = uEmail;
@@ -168,7 +168,7 @@ function checkAndSendSummaryEmailToUser(transId) {
           </tr>`;
       });
 
-      const htmlBody = `...`; // (เก็บ template เดิมของคุณหรือใช้ข้อความข้างต้น)
+      const htmlBody = `...`;
       GmailApp.sendEmail(borrowerEmail, subject, "", { htmlBody: htmlBody, replyTo: SYSTEM_EMAIL, name: "CPE Smart Asset Management" });
     }
   } catch (e) {
@@ -955,8 +955,9 @@ function borrowCartItems(cartItems, borrowerName, borrowerEmail, borrowDateStr, 
 
     for (let item of cartItems) {
       itemDetailsHtml += `<li>รหัสพัสดุ: ${item.id} | ชื่อพัสดุ: ${item.name} | จำนวน: ${item.qty} ชิ้น</li>`;
-      // trans columns: transId, itemID, borrowerName, borrowerEmail, borrowDate, dueDate, returnDate, status, purpose, qty
-      newTrans.push([transId, item.id, borrowerName, borrowerEmail, bDate, dDate, "", "รออนุมัติ", purpose, item.qty]);
+      // trans columns now include borrowerEmail_K at position 11
+      // A..K: transId, itemID, borrowerName, borrowerEmail, borrowDate, dueDate, returnDate, status, purpose, borrowQty, borrowerEmail_K
+      newTrans.push([transId, item.id, borrowerName, borrowerEmail, bDate, dDate, "", "รออนุมัติ", purpose, item.qty, borrowerEmail]);
     }
 
     if (newTrans.length > 0) {
@@ -1069,12 +1070,12 @@ function approveSingleBorrowRequest(transId, itemId) {
       itemSheet.getRange(foundItemRow, 6).setValue(nextStock > 0 ? "พร้อมใช้งาน" : "ถูกยืม");
     }
 
-    // อัปเดต transaction
+    // อัปเดต transaction (วันที่ยืม, สถานะ)
     transSheet.getRange(foundTransRow, 5).setValue(new Date()); 
     transSheet.getRange(foundTransRow, 8).setValue("กำลังยืม");
 
-    // หาอีเมล: ดูใน transaction.col4 ก่อน ถ้าไม่มี ให้ค้นจาก Users.colE (ผ่าน helper)
-    let borrowerEmail = String(transSheet.getRange(foundTransRow, 4).getValue() || "").trim();
+    // หาอีเมลจากคอลัมน์ K (11) ก่อน แล้ว fallback เป็นอื่น
+    let borrowerEmail = String(transSheet.getRange(foundTransRow, 11).getValue() || "").trim();
     if (!borrowerEmail && borrowerIdentifier) {
       borrowerEmail = findUserEmailByIdentifier(borrowerIdentifier) || getUserEmail(borrowerIdentifier) || "";
     }
@@ -1135,7 +1136,7 @@ function rejectSingleBorrowRequest(transId, itemId, reason) {
       transSheet.getRange(foundTransRow, 9).setValue(currentPurpose + " [เหตุผลปฏิเสธ: " + reason.trim() + "]");
     }
 
-    let borrowerEmail = String(transSheet.getRange(foundTransRow, 4).getValue() || "").trim();
+    let borrowerEmail = String(transSheet.getRange(foundTransRow, 11).getValue() || "").trim();
     if (!borrowerEmail && borrowerIdentifier) {
       borrowerEmail = findUserEmailByIdentifier(borrowerIdentifier) || getUserEmail(borrowerIdentifier) || "";
     }
@@ -1197,7 +1198,17 @@ function _resolveBorrowerEmail(txDataRow) {
   try {
     if (!txDataRow) return null;
 
-    // ตรวจค่าใน tx row หลาย key ที่อาจเก็บอีเมล
+    // ตรวจทุก key ใน obj เพื่อหา string ที่มี '@'
+    for (let k in txDataRow) {
+      try {
+        const v = txDataRow[k];
+        if (v && String(v).trim().indexOf('@') !== -1) {
+          return String(v).trim();
+        }
+      } catch (e) { /* ignore */ }
+    }
+
+    // ถ้ายังไม่มีลอง keys แบบเดิมและ lookup จาก Users
     const rawEmails = [
       txDataRow['borrowerEmail'],
       txDataRow['email'],
@@ -1208,13 +1219,11 @@ function _resolveBorrowerEmail(txDataRow) {
       if (v && String(v).trim() !== "") {
         const s = String(v).trim();
         if (s.indexOf('@') !== -1) return s;
-        // ถ้าเป็น username/identifier ให้ลอง lookup
         const resolved = getUserEmail(s);
         if (resolved) return resolved;
       }
     }
 
-    // ถ้ายังไม่มี ลองใช้ borrowerName (อาจเป็น full name)
     const borrowerName = txDataRow['borrowerName'] || txDataRow['ผู้ยืมชื่อ'] || "";
     if (borrowerName && String(borrowerName).trim() !== "") {
       const resolved = getUserEmail(String(borrowerName).trim());
