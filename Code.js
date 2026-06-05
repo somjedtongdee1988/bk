@@ -133,44 +133,84 @@ function checkAndSendSummaryEmailToUser(transId) {
     let borrowerEmail = "";
 
     for (let j = 1; j < transData.length; j++) {
-      if (transData[j][0].toString().trim() === transId.trim()) {
-        borrowerName = transData[j][2];
-        borrowerEmail = String(transData[j][10] || "").trim(); // col K
-        if (transData[j][7] === "รออนุมัติ") { hasPending = true; break; }
-
+      if (String(transData[j][0]).trim() === String(transId).trim()) {
+        borrowerName = transData[j][2] || borrowerName;
+        // index 10 = col K (0-based)
+        borrowerEmail = String(transData[j][10] || borrowerEmail || "").trim();
+        const status = transData[j][7] || "";
+        if (status === "รออนุมัติ") { hasPending = true; }
         basketItems.push({
           itemId: transData[j][1],
-          itemName: itemMap[transData[j][1].toString().trim()] || "ไม่พบชื่อพัสดุในคลัง",
+          itemName: itemMap[String(transData[j][1]).trim()] || "",
           qty: transData[j][9] || 1,
-          status: transData[j][7]
+          status: status
         });
       }
     }
 
+    // หากยังมีรายการรออนุมัติ ให้ยังไม่ส่งสรุป (เพียงอัปเดตสถานะใน sheet เท่านั้น)
+    if (hasPending) {
+      Logger.log("checkAndSendSummaryEmailToUser: trans %s still has pending items; skip sending summary", transId);
+      return;
+    }
+
+    // fallback: หา email จาก Users ถ้ายังว่าง
     if ((!borrowerEmail || borrowerEmail === "") && borrowerName) {
       const uEmail = getUserEmail(borrowerName);
       if (uEmail) borrowerEmail = uEmail;
     }
 
-    if (!hasPending && basketItems.length > 0 && borrowerEmail) {
-      const subject = `✅ [สรุปผลการพิจารณา] แจ้งสถานะคำขอยืมพัสดุ เลขธุรกรรม: ${transId}`;
-      let itemsListHtml = "";
-      basketItems.forEach(item => {
-        let statusBadge = item.status === "กำลังยืม"
-          ? `<span style="color: #059669; font-weight: bold;">🟢 ได้รับอนุมัติ</span>`
-          : `<span style="color: #e11d48; font-weight: bold;">🔴 ไม่ได้รับการอนุมัติ</span>`;
-        itemsListHtml += `
-          <tr>
-            <td style="padding:8px;border:1px solid #e2e8f0;font-family:monospace;font-weight:bold;">${item.itemId}</td>
-            <td style="padding:8px;border:1px solid #e2e8f0;">${item.itemName}</td>
-            <td style="padding:8px;border:1px solid #e2e8f0;text-align:center;">${item.qty} ชิ้น</td>
-            <td style="padding:8px;border:1px solid #e2e8f0;text-align:center;">${statusBadge}</td>
-          </tr>`;
-      });
-
-      const htmlBody = `...`;
-      GmailApp.sendEmail(borrowerEmail, subject, "", { htmlBody: htmlBody, replyTo: SYSTEM_EMAIL, name: "CPE Smart Asset Management" });
+    if (!borrowerEmail || basketItems.length === 0) {
+      Logger.log("checkAndSendSummaryEmailToUser: no email or no items for trans " + transId);
+      return;
     }
+
+    // สร้าง HTML รายการสรุป (แยกแสดง Approved / Rejected)
+    let rowsHtml = "";
+    basketItems.forEach(it => {
+      const badge = (it.status === "กำลังยืม") 
+        ? `<span style="color:#059669;font-weight:bold;">🟢 อนุมัติ</span>` 
+        : `<span style="color:#e11d48;font-weight:bold;">🔴 ไม่อนุมัติ</span>`;
+      rowsHtml += `<tr>
+        <td style="padding:8px;border:1px solid #e2e8f0;font-family:monospace;">${it.itemId}</td>
+        <td style="padding:8px;border:1px solid #e2e8f0;">${it.itemName}</td>
+        <td style="padding:8px;border:1px solid #e2e8f0;text-align:center;">${it.qty}</td>
+        <td style="padding:8px;border:1px solid #e2e8f0;text-align:center;">${badge}</td>
+      </tr>`;
+    });
+
+    const subject = `✅ [สรุปผลการพิจารณา] แจ้งสถานะคำขอยืมพัสดุ เลขธุรกรรม: ${transId}`;
+    const htmlBody = `
+      <div style="font-family:Arial,Helvetica,sans-serif;color:#111;">
+        <h3>สรุปผลการพิจารณาคำขอยืมพัสดุ (หมายเลข: ${transId})</h3>
+        <p>เรียนคุณ <strong>${borrowerName || '-'}</strong></p>
+        <p>สถานะรวมของรายการที่ร้องขอมีดังนี้</p>
+        <table style="width:100%;border-collapse:collapse;margin-top:10px;">
+          <thead>
+            <tr>
+              <th style="padding:8px;border:1px solid #e2e8f0;background:#f8fafc;text-align:left;">รหัสพัสดุ</th>
+              <th style="padding:8px;border:1px solid #e2e8f0;background:#f8fafc;text-align:left;">ชื่อพัสดุ</th>
+              <th style="padding:8px;border:1px solid #e2e8f0;background:#f8fafc;text-align:center;">จำนวน</th>
+              <th style="padding:8px;border:1px solid #e2e8f0;background:#f8fafc;text-align:center;">ผลการพิจารณา</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+        <p style="margin-top:12px;">หากได้รับอนุมัติ กรุณาติดต่อเจ้าหน้าที่เพื่อนัดรับพัสดุ</p>
+        <p style="color:#6b7280;font-size:0.9em;">ระบบ CPE Smart Asset Management</p>
+      </div>
+    `;
+
+    try {
+      GmailApp.sendEmail(borrowerEmail, subject, "", { htmlBody: htmlBody, replyTo: SYSTEM_EMAIL, name: "CPE Smart Asset Management" });
+      Logger.log("checkAndSendSummaryEmailToUser: summary sent to %s for trans %s", borrowerEmail, transId);
+    } catch (e) {
+      Logger.log("checkAndSendSummaryEmailToUser: failed to send summary email: " + e.toString());
+      try { GmailApp.sendEmail(ADMIN_EMAIL_DEFAULT, `⚠️ Email send failed for ${transId}`, `Error: ${e.toString()}\nBorrowerEmail:${borrowerEmail}`); } catch(e2){Logger.log(e2.toString());}
+    }
+
   } catch (e) {
     Logger.log("Error ในการจัดส่งอีเมลสรุปผลรวมหาผู้ยืม: " + e.toString());
   }
@@ -1120,33 +1160,9 @@ function approveSingleBorrowRequest(transId, itemId) {
     transSheet.getRange(foundTransRow, 5).setValue(new Date()); 
     transSheet.getRange(foundTransRow, 8).setValue("กำลังยืม");
 
-    // หาอีเมลจากคอลัมน์ K (11) ก่อน แล้ว fallback เป็นอื่น
-    let borrowerEmail = String(transSheet.getRange(foundTransRow, 11).getValue() || "").trim();
-    if (!borrowerEmail && borrowerIdentifier) {
-      borrowerEmail = findUserEmailByIdentifier(borrowerIdentifier) || getUserEmail(borrowerIdentifier) || "";
-    }
+    Logger.log("approveSingleBorrowRequest updated sheet -> transId:%s itemId:%s row:%s", transId, itemId, foundTransRow);
 
-    Logger.log("approveSingleBorrowRequest debug -> transId:%s, itemId:%s, borrowerIdentifier:%s, resolvedEmail:%s", transId, itemId, borrowerIdentifier, borrowerEmail);
-
-    try {
-      if (borrowerEmail && borrowerEmail.indexOf('@') !== -1) {
-        const subject = `แจ้งผลการอนุมัติคำขอยืมพัสดุ ${itemId}`;
-        const itemLabel = (itemData && itemData.length) ? (itemData.find(r => String(r[0]).trim() === String(itemId).trim()) || [])[1] : "";
-        const body = `คำขอของคุณได้รับการอนุมัติ: ${itemId} ${itemLabel}`;
-        GmailApp.sendEmail(borrowerEmail, subject, body, { htmlBody: body, replyTo: SYSTEM_EMAIL, name: "CPE Smart Asset Management" });
-        Logger.log("Approval email sent -> to:%s trans:%s", borrowerEmail, transId);
-      } else {
-        Logger.log("approveSingleBorrowRequest: no borrower email resolved for trans %s (identifier: %s)", transId, borrowerIdentifier);
-        try { GmailApp.sendEmail(ADMIN_EMAIL_DEFAULT, `⚠️ ขาดอีเมลผู้ยืม: ${transId}`, `ไม่พบอีเมลสำหรับ transaction ${transId} (identifier: ${borrowerIdentifier}).`); }
-        catch(eAdmin) { Logger.log("Notify admin failed: " + eAdmin.toString()); }
-      }
-    } catch (mailErr) {
-      Logger.log("approveSingleBorrowRequest: Gmail send error for trans %s -> %s", transId, mailErr.toString());
-      try { GmailApp.sendEmail(ADMIN_EMAIL_DEFAULT, `⚠️ Email send error for ${transId}`, `Error: ${mailErr.toString()}\nResolvedEmail: ${borrowerEmail}\nItem: ${itemId}`); }
-      catch(e2) { Logger.log("Failed to notify admin about mail error: " + e2.toString()); }
-    }
-
-    // ส่งสรุปเมลเมื่อครบทุกชิ้นในตะกร้า
+    // ไม่ส่งเมลแยกแต่ละชิ้น ตัดการส่งออกไป — เรียกสรุปผลรวมแทน (สรุปจะถูกส่งเมื่อไม่มีรายการรออนุมัติแล้ว)
     try { checkAndSendSummaryEmailToUser(transId); } catch(e){ Logger.log("checkAndSendSummaryEmailToUser err: " + e); }
 
     return { success: true, message: "✅ อนุมัติการยืมพัสดุชิ้นนี้เรียบร้อยแล้ว" };
@@ -1182,35 +1198,15 @@ function rejectSingleBorrowRequest(transId, itemId, reason) {
       transSheet.getRange(foundTransRow, 9).setValue(currentPurpose + " [เหตุผลปฏิเสธ: " + reason.trim() + "]");
     }
 
-    let borrowerEmail = String(transSheet.getRange(foundTransRow, 11).getValue() || "").trim();
-    if (!borrowerEmail && borrowerIdentifier) {
-      borrowerEmail = findUserEmailByIdentifier(borrowerIdentifier) || getUserEmail(borrowerIdentifier) || "";
-    }
+    Logger.log("rejectSingleBorrowRequest updated sheet -> transId:%s itemId:%s row:%s reason:%s", transId, itemId, foundTransRow, reason);
 
-    Logger.log("rejectSingleBorrowRequest debug -> transId:%s, itemId:%s, borrowerIdentifier:%s, resolvedEmail:%s", transId, itemId, borrowerIdentifier, borrowerEmail);
-
-    try {
-      if (borrowerEmail && borrowerEmail.indexOf('@') !== -1) {
-        const subject = `แจ้งผลการขอยืมพัสดุ ${itemId} - ไม่อนุมัติ`;
-        const htmlBody = `<p>คำขอ ${itemId} ถูกปฏิเสธ</p><p>เหตุผล: ${reason || 'ไม่ระบุ'}</p>`;
-        GmailApp.sendEmail(borrowerEmail, subject, "", { htmlBody: htmlBody, replyTo: SYSTEM_EMAIL, name: "CPE Smart Asset Management" });
-        Logger.log("Rejection email sent -> to:%s trans:%s", borrowerEmail, transId);
-      } else {
-        Logger.log("rejectSingleBorrowRequest: no borrower email resolved for trans %s (identifier: %s)", transId, borrowerIdentifier);
-        try { GmailApp.sendEmail(ADMIN_EMAIL_DEFAULT, `⚠️ ขาดอีเมลผู้ยืม: ${transId}`, `ไม่พบอีเมลสำหรับ transaction ${transId} (identifier: ${borrowerIdentifier}).`); }
-        catch(eAdmin) { Logger.log("Notify admin failed: " + eAdmin.toString()); }
-      }
-    } catch (mailErr) {
-      Logger.log("rejectSingleBorrowRequest: Gmail send error for trans %s -> %s", transId, mailErr.toString());
-      try { GmailApp.sendEmail(ADMIN_EMAIL_DEFAULT, `⚠️ Email send error for ${transId}`, `Error: ${mailErr.toString()}\nResolvedEmail: ${borrowerEmail}\nItem: ${itemId}`); }
-      catch(e2) { Logger.log("Failed to notify admin about mail error: " + e2.toString()); }
-    }
-
+    // ไม่ส่งเมลแยกแต่ละชิ้น — เรียกสรุปผลรวมแทน
     try { checkAndSendSummaryEmailToUser(transId); } catch(e){ Logger.log("checkAndSendSummaryEmailToUser err: " + e); }
 
     return { success: true, message: "❌ ปฏิเสธคำขอยืมพัสดุชิ้นนี้เรียบร้อยแล้ว" };
   } catch (e) { return { success: false, message: e.toString() }; }
 }
+
 
 function returnSingleItem(transId, itemId, qty) {
   try {
