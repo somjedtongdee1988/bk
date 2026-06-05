@@ -1224,3 +1224,109 @@ const TX_COL = {
 };
 
 function _txColNum(key) { return TX_COL[key] + 1; } // ให้ค่า 1-based สำหรับ getRange/setValue
+
+// ...existing code...
+function migrateTransactionsToSchemaB() {
+  try {
+    const ss = _openSS();
+    const trans = ss.getSheetByName('Transactions');
+    if (!trans) { Logger.log('Transactions sheet not found'); return { success:false, message:'Transactions sheet not found' }; }
+
+    const lastRow = Math.max(1, trans.getLastRow());
+    const lastCol = Math.max(1, trans.getLastColumn());
+    const values = trans.getRange(1,1,lastRow,lastCol).getValues();
+    const header = (values[0] || []).map(h => String(h||'').trim().toLowerCase());
+
+    // if already schema B (has borrowerUsername column) — skip
+    if (header.indexOf('borrowerusername') !== -1 || header.indexOf('borrower username') !== -1) {
+      Logger.log('Transactions already in target schema (B).');
+      return { success:true, message:'already schema B' };
+    }
+
+    // backup current sheet
+    const ts = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd_HHmmss');
+    const backupName = 'Transactions_backup_' + ts;
+    try {
+      const copy = trans.copyTo(ss);
+      copy.setName(backupName);
+      Logger.log('Backup created: ' + backupName);
+    } catch(eBackup) {
+      Logger.log('Backup failed: ' + eBackup.toString());
+    }
+
+    // helper to find header index by variants
+    const findHeader = (names) => {
+      for (let i=0;i<header.length;i++) {
+        for (let n of names) if (header[i] === n) return i;
+      }
+      return -1;
+    };
+
+    const idxTransId = findHeader(['transid','txid','transactionid','transaction']);
+    const idxItemId = findHeader(['itemid','item id','รหัสพัสดุ','item code']);
+    const idxBorrowerName = findHeader(['borrowername','borrower name','fullname','full name','ผู้ยืม','ชื่อผู้ยืม']);
+    const idxBorrowerEmail = findHeader(['borroweremail','borrower email','email','อีเมล','ผู้ยืมอีเมล']);
+    const idxBorrowDate = findHeader(['borrowdate','borrow date','วันที่ยืม']);
+    const idxDueDate = findHeader(['duedate','due date','กำหนดคืน']);
+    const idxReturnDate = findHeader(['returndate','return date','วันที่คืน','return']);
+    const idxStatus = findHeader(['status','สถานะ']);
+    const idxPurpose = findHeader(['purpose','วัตถุประสงค์','note']);
+    const idxQty = findHeader(['qty','quantity','จำนวน','borrowqty','borrow qty']);
+
+    // build users maps for lookup
+    const usersRes = _readSheetAll('Users');
+    const users = usersRes.values || [];
+    const emailToUser = {};
+    const nameToUser = {};
+    for (let i=1;i<users.length;i++) {
+      const row = users[i] || [];
+      const username = String(row[0]||'').trim();
+      const fullname = String(row[3]||'').trim();
+      const email = String(row[4]||'').trim().toLowerCase();
+      if (username) {
+        if (email) emailToUser[email] = username;
+        if (fullname) nameToUser[fullname.toLowerCase()] = username;
+      }
+    }
+
+    // target header and rows
+    const newHeader = ['transID','itemID','borrowerName','borrowerUsername','borrowerEmail','borrowDate','dueDate','returnDate','status','purpose','borrowQty'];
+    const newRows = [newHeader];
+
+    for (let r = 1; r < values.length; r++) {
+      const row = values[r] || [];
+      const transId = idxTransId >= 0 ? row[idxTransId] : (row[0] || '');
+      const itemId = idxItemId >= 0 ? row[idxItemId] : (row[1] || '');
+      const bName = idxBorrowerName >= 0 ? row[idxBorrowerName] : (row[2] || '');
+      let bEmail = idxBorrowerEmail >= 0 ? row[idxBorrowerEmail] : '';
+      bEmail = String(bEmail||'').trim();
+      let bUsername = '';
+
+      if (bEmail && emailToUser[bEmail.toLowerCase()]) bUsername = emailToUser[bEmail.toLowerCase()];
+      if (!bUsername && bName) {
+        const lookup = nameToUser[String(bName).trim().toLowerCase()];
+        if (lookup) bUsername = lookup;
+      }
+
+      const borrowDate = idxBorrowDate >= 0 ? row[idxBorrowDate] : '';
+      const dueDate = idxDueDate >= 0 ? row[idxDueDate] : '';
+      const returnDate = idxReturnDate >= 0 ? row[idxReturnDate] : '';
+      const status = idxStatus >= 0 ? row[idxStatus] : '';
+      const purpose = idxPurpose >= 0 ? row[idxPurpose] : '';
+      const qty = idxQty >= 0 ? row[idxQty] : (row[9] || row[8] || 1);
+
+      newRows.push([transId, itemId, bName || '', bUsername || '', bEmail || '', borrowDate || '', dueDate || '', returnDate || '', status || '', purpose || '', qty || 1]);
+    }
+
+    // clear sheet and write newRows
+    trans.clearContents();
+    trans.getRange(1,1,newRows.length,newRows[0].length).setValues(newRows);
+
+    Logger.log('Migration complete. Rows migrated: ' + (newRows.length - 1));
+    return { success:true, message:'Migration complete', migrated: newRows.length - 1, backup: backupName };
+  } catch (e) {
+    Logger.log('migrateTransactionsToSchemaB error: ' + e.toString());
+    return { success:false, message: e.toString() };
+  }
+}
+// ...existing code...
