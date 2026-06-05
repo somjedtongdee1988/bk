@@ -935,7 +935,6 @@ function borrowCartItems(cartItems, borrowerName, borrowerUsername, borrowerEmai
       if (idx === undefined || parseInt(itemValues[idx][3]) < item.qty) return { success: false, message: `❌ พัสดุ ${item.id} ไม่พอให้ยืม` };
     }
 
-    
     const newTrans = [];
     let itemDetailsHtml = "";
 
@@ -1082,7 +1081,6 @@ function approveSingleBorrowRequest(transId, itemId) {
       try { GmailApp.sendEmail(ADMIN_EMAIL_DEFAULT, `⚠️ Email send error for ${transId}`, `Error: ${mailErr.toString()}\nResolvedEmail: ${borrowerEmail}\nItem: ${itemId}`); }
       catch(e2) { Logger.log("Failed to notify admin about mail error: " + e2.toString()); }
     }
-
 
     try { checkAndSendSummaryEmailToUser(transId); } catch(e){ Logger.log("checkAndSendSummaryEmailToUser err: " + e); }
 
