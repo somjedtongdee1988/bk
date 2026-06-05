@@ -198,6 +198,31 @@ function _findTransactionById(transId) {
   }
   return null;
 }
+
+/**
+ * หา username จากชีต Users โดยรับ identifier ที่อาจเป็น username / fullName / email
+ */
+function findUsernameByIdentifier(identifier) {
+  try {
+    if (!identifier) return "";
+    const id = String(identifier).trim().toLowerCase();
+    const users = (_readSheetAll('Users').values) || [];
+    for (let r = 1; r < users.length; r++) {
+      const row = users[r] || [];
+      const username = String(row[0] || "").trim();
+      const fullName = String(row[3] || "").trim().toLowerCase();
+      const email = String(row[4] || "").trim().toLowerCase();
+      if (!username) continue;
+      if (username.toLowerCase() === id) return username;
+      if (fullName && fullName === id) return username;
+      if (email && email === id) return username;
+    }
+  } catch (e) {
+    Logger.log("findUsernameByIdentifier error: " + e.toString());
+  }
+  return "";
+}
+
 /**
  * ส่งอีเมลแจ้งผู้ยืมเมื่ออนุมัติ
  */
@@ -947,17 +972,38 @@ function borrowCartItems(cartItems, borrowerName, borrowerEmail, borrowDateStr, 
       if (idx === undefined || parseInt(itemValues[idx][3]) < item.qty) return { success: false, message: `❌ พัสดุ ${item.id} ไม่พอให้ยืม` };
     }
 
-    // ถ้า borrowerEmail ว่าง ให้พยายาม resolve จาก Users
-    borrowerEmail = (borrowerEmail && String(borrowerEmail).trim()) ? String(borrowerEmail).trim() : (findUserEmailByIdentifier(borrowerName) || getUserEmail(borrowerName) || "");
+    // Resolve email และ username ให้ถูกต้อง
+    let resolvedEmail = "";
+    let resolvedUsername = "";
+
+    // ถ้า borrowerEmail param เป็น email ให้ใช้เลย
+    if (borrowerEmail && String(borrowerEmail).trim().indexOf('@') !== -1) {
+      resolvedEmail = String(borrowerEmail).trim();
+      // หา username จาก email ถาม Users
+      resolvedUsername = findUsernameByIdentifier(resolvedEmail) || findUsernameByIdentifier(borrowerName) || "";
+    } else {
+      // borrowerEmail param อาจเป็น username หรือว่าง
+      if (borrowerEmail && String(borrowerEmail).trim() !== "") {
+        resolvedUsername = String(borrowerEmail).trim();
+        resolvedEmail = findUserEmailByIdentifier(resolvedUsername) || getUserEmail(resolvedUsername) || "";
+      }
+      // ถ้ายังไม่มี email ให้ลองหาโดยใช้ borrowerName
+      if (!resolvedEmail && borrowerName) {
+        resolvedEmail = findUserEmailByIdentifier(borrowerName) || getUserEmail(borrowerName) || "";
+        if (!resolvedUsername) resolvedUsername = findUsernameByIdentifier(borrowerName);
+      }
+    }
+
+    // ถ้ายังไม่มี username ให้ใส่ borrowerName เป็นค่า fallback
+    if (!resolvedUsername) resolvedUsername = borrowerName || "";
 
     const newTrans = [];
     let itemDetailsHtml = "";
 
     for (let item of cartItems) {
       itemDetailsHtml += `<li>รหัสพัสดุ: ${item.id} | ชื่อพัสดุ: ${item.name} | จำนวน: ${item.qty} ชิ้น</li>`;
-      // trans columns now include borrowerEmail_K at position 11
-      // A..K: transId, itemID, borrowerName, borrowerEmail, borrowDate, dueDate, returnDate, status, purpose, borrowQty, borrowerEmail_K
-      newTrans.push([transId, item.id, borrowerName, borrowerEmail, bDate, dDate, "", "รออนุมัติ", purpose, item.qty, borrowerEmail]);
+      // คอลัมน์: A transId, B itemID, C borrowerName, D borrowerUsername (หรือชื่อที่แสดง), E borrowDate, F dueDate, G returnDate, H status, I purpose, J borrowQty, K borrowerEmail (จริง)
+      newTrans.push([transId, item.id, borrowerName || "", resolvedUsername || "", bDate, dDate, "", "รออนุมัติ", purpose || "", item.qty, resolvedEmail || ""]);
     }
 
     if (newTrans.length > 0) {
@@ -968,7 +1014,7 @@ function borrowCartItems(cartItems, borrowerName, borrowerEmail, borrowDateStr, 
     if (adminList.length > 0) {
       const emailSubject = `📢 มีคำขอยืมพัสดุครุภัณฑ์ใหม่รอการพิจารณาอนุมัติ [ธุรกรรม: ${transId}]`;
       const emailBody = `<h3>ระบบยืม-คืนพัสดุอัจฉริยะ CPE มรพส.</h3>
-        <p><b>ผู้ขอส่งคำยืม:</b> ${borrowerName} (${borrowerEmail})</p>
+        <p><b>ผู้ขอส่งคำยืม:</b> ${borrowerName} (${resolvedUsername}) ${resolvedEmail ? "(" + resolvedEmail + ")" : ""}</p>
         <p><b>วัตถุประสงค์:</b> ${purpose}</p>
         <p><b>รายการพัสดุที่ขอยืม:</b></p>
         <ul>${itemDetailsHtml}</ul>
