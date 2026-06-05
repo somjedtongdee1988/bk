@@ -1058,7 +1058,9 @@ function borrowCartItems(cartItems, borrowerName, borrowerEmail, borrowDateStr, 
         <p><b>วัตถุประสงค์:</b> ${purpose}</p>
         <p><b>รายการพัสดุที่ขอยืม:</b></p>
         <ul>${itemDetailsHtml}</ul>
-        <p>โปรดตรวจสอบและพิจารณาคำขอผ่านระบบ ระบบยืม-คืนพัสดุอัจฉริยะ CPE มรพส.</p>`;
+        <p>โปรดตรวจสอบและพิจารณาคำขอผ่านระบบ ระบบยืม-คืนพัสดุอัจฉริยะ CPE มรพส.</p>
+        <a href="https://script.google.com/a/macros/psru.ac.th/s/AKfycbzCyYJ0zV7_wQTxJLJlYUf5_HGpHidLGJ-VsL86vRU76L5YREra1cY6fdZBiniLU0iYOA/exec">ระบบยืม-คืนพัสดุอัจฉริยะ CPE มรพส.</a>
+        <p>Web Application :  </p>`;
 
       for (let email of adminList) {
         try { GmailApp.sendEmail(email, emailSubject, "", { htmlBody: emailBody }); }
