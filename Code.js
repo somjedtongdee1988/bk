@@ -37,14 +37,8 @@ function initDatabase() {
   }
   if (!ss.getSheetByName("Transactions")) {
     const transSheet = ss.insertSheet("Transactions");
-    transSheet.appendRow(["transID", "itemID", "borrowerName", "borrowerEmail", "borrowDate", "dueDate", "returnDate", "status", "purpose", "borrowQty"]);
-  }
-  if (!ss.getSheetByName("Users")) {
-    const userSheet = ss.insertSheet("Users");
-    userSheet.appendRow(["username", "role", "password", "fullName", "email", "phone", "position", "profilePic"]);
-    userSheet.appendRow(["admin@psru.ac.th", "ADMIN", "123456", "ผู้ดูแลระบบ คลังพัสดุ", "admin@psru.ac.th", "055-111111", "อาจารย์ประจำสาขา", ""]);
-    userSheet.appendRow(["boss@psru.ac.th", "SUPER_ADMIN", "654321", "หัวหน้าสาขาวิศวกรรม", "boss@psru.ac.th", "055-222222", "ผู้บริหาร", ""]);
-    userSheet.appendRow(["user@psru.ac.th", "USER", "111111", "", "", "", "", ""]);
+    // ปรับ header ให้มี borrowerUsername (D) และ borrowerEmail (E)
+    transSheet.appendRow(["transID", "itemID", "borrowerName", "borrowerUsername", "borrowerEmail", "borrowDate", "dueDate", "returnDate", "status", "purpose", "borrowQty"]);
   }
 }
 
@@ -508,8 +502,8 @@ function updateProfileData(username, fullName, email, phone, position, idCode, m
 function getUserLoanHistory(username, role, page, pageSize, full) {
   try {
     page = parseInt(page, 10) || 1;
-    pageSize = parseInt(pageSize, 10) || 5; // UI ต้องการ 5 รายการเริ่มต้น
-    full = !!full; // ถ้า true -> อ่านทั้งชีต
+    pageSize = parseInt(pageSize, 10) || 5;
+    full = !!full;
     const neededCount = page * pageSize;
 
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -522,8 +516,7 @@ function getUserLoanHistory(username, role, page, pageSize, full) {
     const lastTransCol = Math.max(1, transSheet.getLastColumn());
     if (lastTransRow <= 1) return { success: true, history: [], total: 0, page, pageSize, isGlobalView: false, hasMore: false };
 
-    // ถ้าไม่ขอ full ให้จำกัดจำนวนแถวที่จะอ่านจากท้ายชีต (ลด I/O)
-    const SCAN_LIMIT = 1000; // ปรับได้ตามขนาดข้อมูล
+    const SCAN_LIMIT = 1000;
     let readStartRow = 1;
     let readRowCount = lastTransRow;
     if (!full) {
@@ -537,69 +530,61 @@ function getUserLoanHistory(username, role, page, pageSize, full) {
     const userRole = role ? role.trim().toUpperCase() : "USER";
     const ssTimeZone = ss.getSpreadsheetTimeZone();
 
-    // เก็บตำแหน่งแถว (index ใน transData) ของรายการที่ตรงเงื่อนไข (วนจากท้ายที่อ่านได้)
     const matchedIndices = [];
     for (let i = transData.length - 1; i >= 1; i--) {
       const row = transData[i];
-      if (!row || !row[1]) continue;
-      const transUser = row[3] ? String(row[3]).trim().toLowerCase() : "";
+      if (!row || !row[TX_COL.itemId]) continue;
+      const transUser = row[TX_COL.borrowerUsername] ? String(row[TX_COL.borrowerUsername]).trim().toLowerCase() : "";
       if (userRole === "ADMIN" || userRole === "SUPER_ADMIN" || transUser === targetUser) {
         matchedIndices.push(i);
-        // ถ้าไม่ได้อ่านทั้งหมดและเก็บครบพอสำหรับหน้า requested ก็หยุด (performance)
         if (!full && matchedIndices.length >= neededCount) break;
       }
     }
 
-    // คำนวน totalMatches และ hasMore ให้ครอบคลุมกรณีที่อ่านทั้งชีตแล้วด้วย
     let totalMatches = matchedIndices.length;
     let hasMore = false;
     if (!full) {
       if (readStartRow > 1) {
-        // อ่านเฉพาะหน้าต่างท้าย: ถ้าได้ครบ neededCount มีความเป็นไปได้ว่ามีเพิ่ม
         hasMore = matchedIndices.length >= neededCount;
       } else {
-        // อ่านทั้งชีตแล้ว: ถ้าจำนวนรายการมากกว่า pageSize ให้แสดงปุ่ม "ดูเพิ่มเติมทั้งหมด"
         hasMore = matchedIndices.length > pageSize;
       }
     } else {
-      // full = true -> โหลดทั้งหมดแล้ว ไม่มี more
       hasMore = false;
     }
 
-    // สร้างรายการที่จะส่งกลับเฉพาะสำหรับหน้า (pagination) โดยแปลง matchedIndices เป็นข้อมูลจริง
     const historyList = [];
     const startIndex = (page - 1) * pageSize;
     for (let k = startIndex; k < Math.min(matchedIndices.length, startIndex + pageSize); k++) {
       const idx = matchedIndices[k];
       const row = transData[idx];
 
-      const bRaw = row[4];
-      const dRaw = row[5];
-      const rRaw = row[6];
+      const bRaw = row[TX_COL.borrowDate];
+      const dRaw = row[TX_COL.dueDate];
+      const rRaw = row[TX_COL.returnDate];
 
       const borrowDate = bRaw ? Utilities.formatDate(bRaw instanceof Date ? bRaw : new Date(bRaw), ssTimeZone, "dd/MM/yyyy HH:mm") : "-";
       const dueDate = dRaw ? Utilities.formatDate(dRaw instanceof Date ? dRaw : new Date(dRaw), ssTimeZone, "dd/MM/yyyy") : "-";
       const returnDate = rRaw ? Utilities.formatDate(rRaw instanceof Date ? rRaw : new Date(rRaw), ssTimeZone, "dd/MM/yyyy HH:mm") : "-";
 
-      const borrowerEmail = row[3] ? String(row[3]).trim().toLowerCase() : "";
+      const borrowerEmail = row[TX_COL.borrowerEmail] ? String(row[TX_COL.borrowerEmail]).trim().toLowerCase() : "";
 
       historyList.push({
-        transId: row[0],
-        itemId: row[1],
-        itemName: itemMap[String(row[1]).trim()] || "ไม่พบชื่อพัสดุในคลัง",
-        borrowerName: row[2] ? String(row[2]).trim() : "ไม่ระบุชื่อ",
+        transId: row[TX_COL.transId],
+        itemId: row[TX_COL.itemId],
+        itemName: itemMap[String(row[TX_COL.itemId]).trim()] || "ไม่พบชื่อพัสดุในคลัง",
+        borrowerName: row[TX_COL.borrowerName] ? String(row[TX_COL.borrowerName]).trim() : "ไม่ระบุชื่อ",
         borrowerEmail: borrowerEmail,
         borrowDate: borrowDate,
         dueDate: dueDate,
         returnDate: returnDate,
-        status: row[7],
-        purpose: row[8] || "-",
-        qty: row[9] || 1
+        status: row[TX_COL.status],
+        purpose: row[TX_COL.purpose] || "-",
+        qty: row[TX_COL.qty] || 1
       });
     }
 
     const isGlobalView = (userRole === "ADMIN" || userRole === "SUPER_ADMIN");
-    // ส่ง total กลับเมื่ออ่านทั้งชีตจริง ๆ หรือเมื่อ full=true
     const totalToReturn = (readStartRow === 1 || full) ? totalMatches : null;
     return { success: true, history: historyList, total: totalToReturn, page: page, pageSize: pageSize, isGlobalView: isGlobalView, hasMore: hasMore };
   } catch (e) {
@@ -918,11 +903,14 @@ function getAdminEmails() {
 }
 
 /* ปรับปรุง borrowCartItems ให้อ่านแค่แถวจริงและตรวจสอบแบบ batch */
-function borrowCartItems(cartItems, borrowerName, borrowerEmail, borrowDateStr, dueDateStr, purpose) {
+function borrowCartItems(cartItems, borrowerName, borrowerUsername, borrowerEmail, borrowDateStr, dueDateStr, purpose) {
   try {
     const ss = _openSS();
     const itemSheet = ss.getSheetByName("Items");
     const transSheet = ss.getSheetByName("Transactions");
+
+    // resolve borrowerEmail หากไม่มี โดยค้นจาก username / fullname ใน Users
+    borrowerEmail = (borrowerEmail && String(borrowerEmail).trim()) ? String(borrowerEmail).trim() : (findUserEmailByIdentifier(borrowerUsername || borrowerName) || getUserEmail(borrowerUsername || borrowerName) || "");
 
     const lastItemRow = Math.max(1, itemSheet.getLastRow());
     const lastItemCol = Math.max(1, itemSheet.getLastColumn());
@@ -947,16 +935,14 @@ function borrowCartItems(cartItems, borrowerName, borrowerEmail, borrowDateStr, 
       if (idx === undefined || parseInt(itemValues[idx][3]) < item.qty) return { success: false, message: `❌ พัสดุ ${item.id} ไม่พอให้ยืม` };
     }
 
-    // ถ้า borrowerEmail ว่าง ให้พยายาม resolve จาก Users
-    borrowerEmail = (borrowerEmail && String(borrowerEmail).trim()) ? String(borrowerEmail).trim() : (findUserEmailByIdentifier(borrowerName) || getUserEmail(borrowerName) || "");
-
+    
     const newTrans = [];
     let itemDetailsHtml = "";
 
     for (let item of cartItems) {
       itemDetailsHtml += `<li>รหัสพัสดุ: ${item.id} | ชื่อพัสดุ: ${item.name} | จำนวน: ${item.qty} ชิ้น</li>`;
-      // trans columns: transId, itemID, borrowerName, borrowerEmail, borrowDate, dueDate, returnDate, status, purpose, qty
-      newTrans.push([transId, item.id, borrowerName, borrowerEmail, bDate, dDate, "", "รออนุมัติ", purpose, item.qty]);
+      // ตามแผนผังใหม่ (A..K): transId, itemID, borrowerName, borrowerUsername, borrowerEmail, borrowDate, dueDate, returnDate, status, purpose, qty
+      newTrans.push([transId, item.id, borrowerName, borrowerUsername || "", borrowerEmail || "", bDate, dDate, "", "รออนุมัติ", purpose || "", item.qty]);
     }
 
     if (newTrans.length > 0) {
@@ -967,7 +953,7 @@ function borrowCartItems(cartItems, borrowerName, borrowerEmail, borrowDateStr, 
     if (adminList.length > 0) {
       const emailSubject = `📢 มีคำขอยืมพัสดุครุภัณฑ์ใหม่รอการพิจารณาอนุมัติ [ธุรกรรม: ${transId}]`;
       const emailBody = `<h3>ระบบยืม-คืนพัสดุอัจฉริยะ CPE มรพส.</h3>
-        <p><b>ผู้ขอส่งคำยืม:</b> ${borrowerName} (${borrowerEmail})</p>
+        <p><b>ผู้ขอส่งคำยืม:</b> ${borrowerName} (${borrowerUsername || ""}) ${borrowerEmail ? "(" + borrowerEmail + ")" : ""}</p>
         <p><b>วัตถุประสงค์:</b> ${purpose}</p>
         <p><b>รายการพัสดุที่ขอยืม:</b></p>
         <ul>${itemDetailsHtml}</ul>
@@ -1037,22 +1023,22 @@ function approveSingleBorrowRequest(transId, itemId) {
     
     let foundTransRow = -1;
     let qtyToBorrow = 1;
-    let borrowerIdentifier = "";
+    let borrowerUsername = "";
 
     for (let j = 1; j < transData.length; j++) {
-      if (String(transData[j][0]).trim() === String(transId).trim()
-          && String(transData[j][1]).trim() === String(itemId).trim()
-          && String(transData[j][7]).trim() === "รออนุมัติ") {
+      if (String(transData[j][TX_COL.transId]).trim() === String(transId).trim()
+          && String(transData[j][TX_COL.itemId]).trim() === String(itemId).trim()
+          && String(transData[j][TX_COL.status]).trim() === "รออนุมัติ") {
         foundTransRow = j + 1;
-        qtyToBorrow = parseInt(transData[j][9]) || 1;
-        borrowerIdentifier = String(transData[j][2] || "").trim();
+        qtyToBorrow = parseInt(transData[j][TX_COL.qty]) || 1;
+        borrowerUsername = String(transData[j][TX_COL.borrowerUsername] || "").trim();
         break;
       }
     }
 
     if (foundTransRow === -1) return { success: false, message: "❌ ไม่พบรายการคำขอยืมรออนุมัติที่ตรงกัน" };
 
-    // ลดสต็อก
+    // ลดสต็อก (เหมือนเดิม)
     let foundItemRow = -1;
     let currentStock = 0;
     for (let i = 1; i < itemData.length; i++) {
@@ -1069,17 +1055,15 @@ function approveSingleBorrowRequest(transId, itemId) {
       itemSheet.getRange(foundItemRow, 6).setValue(nextStock > 0 ? "พร้อมใช้งาน" : "ถูกยืม");
     }
 
-    // อัปเดต transaction
-    transSheet.getRange(foundTransRow, 5).setValue(new Date()); 
-    transSheet.getRange(foundTransRow, 8).setValue("กำลังยืม");
+    // อัปเดต transaction (วันที่ยืม, สถานะ)
+    transSheet.getRange(foundTransRow, _txColNum('borrowDate')).setValue(new Date()); 
+    transSheet.getRange(foundTransRow, _txColNum('status')).setValue("กำลังยืม");
 
-    // หาอีเมล: ดูใน transaction.col4 ก่อน ถ้าไม่มี ให้ค้นจาก Users.colE (ผ่าน helper)
-    let borrowerEmail = String(transSheet.getRange(foundTransRow, 4).getValue() || "").trim();
-    if (!borrowerEmail && borrowerIdentifier) {
-      borrowerEmail = findUserEmailByIdentifier(borrowerIdentifier) || getUserEmail(borrowerIdentifier) || "";
-    }
+    // หาอีเมลจากคอลัมน์ borrowerEmail (E) หรือจาก Users (โดยใช้ borrowerUsername)
+    let borrowerEmail = String(transSheet.getRange(foundTransRow, _txColNum('borrowerEmail')).getValue() || "").trim();
+    if (!borrowerEmail && borrowerUsername) borrowerEmail = findUserEmailByIdentifier(borrowerUsername) || getUserEmail(borrowerUsername) || "";
 
-    Logger.log("approveSingleBorrowRequest debug -> transId:%s, itemId:%s, borrowerIdentifier:%s, resolvedEmail:%s", transId, itemId, borrowerIdentifier, borrowerEmail);
+    Logger.log("approveSingleBorrowRequest debug -> transId:%s, itemId:%s, borrowerUsername:%s, resolvedEmail:%s", transId, itemId, borrowerUsername, borrowerEmail);
 
     try {
       if (borrowerEmail && borrowerEmail.indexOf('@') !== -1) {
@@ -1089,8 +1073,8 @@ function approveSingleBorrowRequest(transId, itemId) {
         GmailApp.sendEmail(borrowerEmail, subject, body, { htmlBody: body, replyTo: SYSTEM_EMAIL, name: "CPE Smart Asset Management" });
         Logger.log("Approval email sent -> to:%s trans:%s", borrowerEmail, transId);
       } else {
-        Logger.log("approveSingleBorrowRequest: no borrower email resolved for trans %s (identifier: %s)", transId, borrowerIdentifier);
-        try { GmailApp.sendEmail(ADMIN_EMAIL_DEFAULT, `⚠️ ขาดอีเมลผู้ยืม: ${transId}`, `ไม่พบอีเมลสำหรับ transaction ${transId} (identifier: ${borrowerIdentifier}).`); }
+        Logger.log("approveSingleBorrowRequest: no borrower email resolved for trans %s (username: %s)", transId, borrowerUsername);
+        try { GmailApp.sendEmail(ADMIN_EMAIL_DEFAULT, `⚠️ ขาดอีเมลผู้ยืม: ${transId}`, `ไม่พบอีเมลสำหรับ transaction ${transId} (username: ${borrowerUsername}).`); }
         catch(eAdmin) { Logger.log("Notify admin failed: " + eAdmin.toString()); }
       }
     } catch (mailErr) {
@@ -1099,7 +1083,7 @@ function approveSingleBorrowRequest(transId, itemId) {
       catch(e2) { Logger.log("Failed to notify admin about mail error: " + e2.toString()); }
     }
 
-    // ส่งสรุปเมลเมื่อครบทุกชิ้นในตะกร้า
+
     try { checkAndSendSummaryEmailToUser(transId); } catch(e){ Logger.log("checkAndSendSummaryEmailToUser err: " + e); }
 
     return { success: true, message: "✅ อนุมัติการยืมพัสดุชิ้นนี้เรียบร้อยแล้ว" };
@@ -1226,3 +1210,19 @@ function _resolveBorrowerEmail(txDataRow) {
   }
   return null;
 }
+
+const TX_COL = {
+  transId: 0,         // A
+  itemId: 1,          // B
+  borrowerName: 2,    // C (full name / display name)
+  borrowerUsername: 3,// D (username) <-- ตามที่ต้องการให้คอลัมน์ D เก็บ username
+  borrowerEmail: 4,   // E (email)    <-- เพิ่มคอลัมน์ใหม่สำหรับอีเมล
+  borrowDate: 5,      // F
+  dueDate: 6,         // G
+  returnDate: 7,      // H
+  status: 8,          // I
+  purpose: 9,         // J
+  qty: 10             // K
+};
+
+function _txColNum(key) { return TX_COL[key] + 1; } // ให้ค่า 1-based สำหรับ getRange/setValue
