@@ -1,19 +1,26 @@
 <style>
-  
+
   @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
   :root{ --page-bg:#f8fafc; --muted:#94a3b8; --accent:#f59e0b }
   body{ font-family:'Sarabun',sans-serif; background-color:var(--page-bg); font-size:14px; }
 
   /* ตารางประวัติ */
- .history-table { border-collapse: separate; border-spacing: 0; width: 100%; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
-  .history-table thead th { background: #f8fafc; color: #475569; padding: 12px; font-size: 0.75rem; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
-  .history-table tbody tr { transition: all 0.2s; border-bottom: 1px solid #f1f5f9; }
-  .history-table tbody tr:hover { background-color: #f1f5f9; }
-  .history-table td { padding: 12px; vertical-align: middle; }
+ .history-table-wrapper { width: 100%; overflow-x: auto; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
   
+  .history-table { width: 100%; border-collapse: collapse; min-width: 850px; }
+  
+  .history-table thead th { background: #f8fafc; color: #475569; font-size: 0.7rem; padding: 16px; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; text-align: left; }
+  
+  .history-table tbody tr { transition: all 0.2s; border-bottom: 1px solid #f1f5f9; cursor: pointer; }
+  .history-table tbody tr:hover { background-color: #f1f5f9; }
+  
+  .history-table td { padding: 14px 16px; vertical-align: middle; color: #334155; font-size: 0.85rem; }
   /* Status Badges */
   .status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; font-weight: 600; font-size: 0.75rem; }
-  
+  /* ปรับแต่งคอลัมน์พิเศษ */
+  .col-id { font-family: monospace; font-weight: 700; color: #0f172a; }
+  .col-name { font-weight: 600; color: #1e293b; }
+  .col-user { line-height: 1.4; }
   /* Responsive Mobile View */
   @media (max-width: 768px) {
     .history-table thead { display: none; }

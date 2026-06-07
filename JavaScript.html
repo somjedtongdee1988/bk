@@ -409,36 +409,34 @@ function _renderHistoryRows(tbody, adminApprovalTbody, rows, activeRole) {
   if (adminApprovalTbody) adminApprovalTbody.innerHTML = "";
 
   let approvalCountForBadge = 0;
-  
   rows.forEach(function(row) {
     let badge = "";
-    // รักษา logic เดิมของ Badge ตามที่คุณมีอยู่
     if (row.status === "รออนุมัติ") {
       approvalCountForBadge++;
-      badge = `<span class="px-2 py-1 bg-amber-50 text-amber-800 rounded-full text-xs font-bold border border-amber-200">⏳ รออนุมัติ</span>`;
+      badge = `<span class="px-3 py-1 bg-amber-50 text-amber-800 rounded-full text-xs font-bold border border-amber-200">รออนุมัติ</span>`;
     } else if (row.status === "กำลังยืม") {
-      badge = `<span class="px-2 py-1 bg-rose-50 text-rose-700 rounded-full text-xs font-bold border border-rose-100">กำลังยืม</span>`;
-    } else if (row.status === "ไม่อนุมัติ") {
-      badge = `<span class="px-2 py-1 bg-red-50 text-red-700 rounded-full text-xs font-bold border border-red-200">❌ ปฏิเสธ</span>`;
+      badge = `<span class="px-3 py-1 bg-rose-50 text-rose-700 rounded-full text-xs font-bold border border-rose-100">กำลังยืม</span>`;
+    } else if (row.status === "คืนแล้ว") {
+      badge = `<span class="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold border border-emerald-100">คืนแล้ว</span>`;
     } else {
-      badge = `<span class="px-2 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold border border-emerald-100">ส่งคืนแล้ว</span>`;
+      badge = `<span class="px-3 py-1 bg-gray-50 text-gray-600 rounded-full text-xs font-bold border">${row.status}</span>`;
     }
 
     let returnDateDisplay = (row.status === "กำลังยืม" || row.status === "รออนุมัติ" || row.status === "ไม่อนุมัติ") ? "-" : (row.returnDate || "-");
 
-    // โครงสร้างตารางเดิมที่นำข้อมูลกลับมาครบถ้วน
-    let rowHtml = `<tr onclick="openTxDetailsModal(${JSON.stringify(row).replace(/"/g, '&quot;')})" class="hover:bg-slate-50 transition border-b border-slate-100 bg-white cursor-pointer">
-      <td class="p-3 text-center font-mono font-bold text-slate-900">${row.itemId}</td>
-      <td class="p-3 font-medium text-slate-700">${row.itemName}</td>
-      <td class="p-3 text-center font-bold text-slate-800">${row.qty} ชิ้น</td>
-      <td class="p-3 text-slate-600">
-        <div class="text-xs">${row.borrowerName || '-'}</div>
-        <div class="text-xxs text-slate-400 font-mono">${row.borrowerEmail || '-'}</div>
+    let rowHtml = `
+    <tr onclick="openTxDetailsModal(${JSON.stringify(row).replace(/"/g, '&quot;')})">
+      <td class="col-id text-center">${row.itemId}</td>
+      <td class="col-name">${row.itemName}</td>
+      <td class="text-center">${row.qty}</td>
+      <td class="col-user">
+        <div class="font-bold">${row.borrowerName || '-'}</div>
+        <div class="text-xs text-slate-400">${row.borrowerEmail || '-'}</div>
       </td>
-      <td class="p-3 text-slate-600 font-medium">${row.borrowDate}</td>
-      <td class="p-3 text-slate-600 font-medium">${row.dueDate}</td>
-      <td class="p-3 text-slate-600 font-medium font-mono">${returnDateDisplay}</td>
-      <td class="p-3 text-center">${badge}</td>
+      <td>${row.borrowDate}</td>
+      <td>${row.dueDate}</td>
+      <td class="font-mono text-slate-600">${returnDateDisplay}</td>
+      <td class="text-center">${badge}</td>
     </tr>`;
     tbody.innerHTML += rowHtml;
 
