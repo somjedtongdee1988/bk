@@ -412,14 +412,23 @@ function _renderHistoryRows(tbody, adminApprovalTbody, rows, activeRole) {
     let badge = "";
     if (row.status === "รออนุมัติ") {
       approvalCountForBadge++;
-      badge = `<span class="px-3 py-1 bg-amber-50 text-amber-800 rounded-full text-xs font-bold border border-amber-200">รออนุมัติ</span>`;
+      badge = `<span class="status-pill inline-flex items-center gap-1.5 bg-amber-50 text-amber-800 text-xs font-bold px-3 py-1 rounded-full border border-amber-200">
+                 <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> ⏳ รออนุมัติจากเจ้าหน้าที่
+               </span>`;
     } else if (row.status === "กำลังยืม") {
-      badge = `<span class="px-3 py-1 bg-rose-50 text-rose-700 rounded-full text-xs font-bold border border-rose-100">กำลังยืม</span>`;
-    } else if (row.status === "คืนแล้ว") {
-      badge = `<span class="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold border border-emerald-100">คืนแล้ว</span>`;
+      badge = `<span class="status-pill inline-flex items-center gap-1.5 bg-rose-50 text-rose-700 text-xs font-bold px-3 py-1 rounded-full border border-rose-100">
+                 <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span> ค้างคืนอุปกรณ์
+               </span>`;
+    } else if (row.status === "ไม่อนุมัติ") {
+      badge = `<span class="status-pill inline-flex items-center gap-1.5 bg-red-50 text-red-700 text-xs font-bold px-3 py-1 rounded-full border border-red-200">
+                 <span class="w-2 h-2 rounded-full bg-red-500"></span> ❌ ปฏิเสธคำขอยืม
+               </span>`;
     } else {
-      badge = `<span class="px-3 py-1 bg-gray-50 text-gray-600 rounded-full text-xs font-bold border">${row.status}</span>`;
+      badge = `<span class="status-pill inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 text-xs font-bold px-3 py-1 rounded-full border border-emerald-100">
+                 <span class="w-2 h-2 rounded-full bg-emerald-500"></span> ส่งคืนคลังแล้ว
+               </span>`;
     }
+
 
     let returnDateDisplay = (row.status === "กำลังยืม" || row.status === "รออนุมัติ" || row.status === "ไม่อนุมัติ") ? "-" : (row.returnDate || "-");
 
