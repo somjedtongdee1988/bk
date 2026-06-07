@@ -38,6 +38,9 @@
   /* Default: table cells should not wrap (single-line). Use ellipsis to keep layout tidy. */
   table.w-full th, table.w-full td{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px }
 
+  /* Status badges/pills should remain on one line */
+  .status-pill { white-space: nowrap; display: inline-block; }
+
   /* Exception: product name column (3rd) may wrap if it exceeds width */
   table.w-full th:nth-child(3), table.w-full td:nth-child(3){ white-space:normal; overflow-wrap:anywhere; word-break:break-word; max-width:420px }
 
@@ -53,4 +56,32 @@
   .filter-btn{ color:#475569 }
   .filter-btn.bg-slate-900{ background-color:#0f172a!important; color:#fbbf24!important }
 
+</style>
+/* Mobile-first forced view for USER role */
+<style>
+  body.force-mobile-view {
+    overflow-x: hidden;
+  }
+  /* hide large sidebar and show a compact mobile header */
+  body.force-mobile-view #sidebar-menu { display: none !important; }
+  body.force-mobile-view #sidebar-overlay { display: none !important; }
+  body.force-mobile-view header { position: sticky; top: 0; z-index: 60; }
+
+  /* Force item grid to single column and increase spacing for readability */
+  body.force-mobile-view #user-items-grid-container { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; gap: 12px !important; }
+
+  /* For tables in management area: present each row as a stacked card for mobile users */
+  body.force-mobile-view table.w-full { display: block !important; }
+  body.force-mobile-view table.w-full thead, body.force-mobile-view table.w-full tbody, body.force-mobile-view table.w-full tr { display:block !important; width:100% !important; }
+  body.force-mobile-view table.w-full tr { margin-bottom: 12px; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(15,23,42,0.06); }
+  body.force-mobile-view table.w-full td, body.force-mobile-view table.w-full th { display: flex !important; justify-content: space-between; padding: 10px !important; white-space: normal !important; border-bottom: 0 !important; }
+  body.force-mobile-view table.w-full td:first-child, body.force-mobile-view table.w-full th:first-child { padding-top: 12px !important; }
+  body.force-mobile-view table.w-full td .label { font-weight:700; color:#475569; margin-right:8px; }
+
+  /* hide admin-only columns/actions to simplify view */
+  body.force-mobile-view td .btn-group { display:flex; gap:8px; }
+
+  @media (min-width: 640px) {
+    body.force-mobile-view table.w-full td, body.force-mobile-view table.w-full th { white-space: normal !important; }
+  }
 </style>

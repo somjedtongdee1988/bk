@@ -216,6 +216,15 @@
     const userItemsTab = document.getElementById("tab-content-user-items-tab");
     const sectionDashboard = document.getElementById("section-dashboard");
 
+    // Force mobile-first view for regular USER accounts: add/remove a body class
+    try {
+      if (typeof CURRENT_USER_ROLE !== 'undefined' && CURRENT_USER_ROLE === 'USER' && CURRENT_USER_EMAIL !== "") {
+        document.body.classList.add('force-mobile-view');
+      } else {
+        document.body.classList.remove('force-mobile-view');
+      }
+    } catch (e) { /* ignore if body not ready */ }
+
     if (CURRENT_USER_EMAIL !== "") {
       if(authScreen) authScreen.classList.add("hidden"); 
       if(mainApp) mainApp.classList.remove("hidden");
@@ -358,28 +367,54 @@ function _renderHistoryRows(tbody, adminApprovalTbody, rows, activeRole) {
   let approvalCountForBadge = 0;
   rows.forEach(function(row) {
     let badge = "";
-    if (row.status === "รออนุมัติ") {
+      if (row.status === "รออนุมัติ") {
       approvalCountForBadge++;
-      badge = `<span class="inline-flex items-center gap-1.5 bg-amber-50 text-amber-800 text-xs font-bold px-3 py-1 rounded-full border border-amber-200">
+      badge = `<span class="status-pill inline-flex items-center gap-1.5 bg-amber-50 text-amber-800 text-xs font-bold px-3 py-1 rounded-full border border-amber-200">
                  <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> ⏳ รออนุมัติจากเจ้าหน้าที่
                </span>`;
     } else if (row.status === "กำลังยืม") {
-      badge = `<span class="inline-flex items-center gap-1.5 bg-rose-50 text-rose-700 text-xs font-bold px-3 py-1 rounded-full border border-rose-100">
+      badge = `<span class="status-pill inline-flex items-center gap-1.5 bg-rose-50 text-rose-700 text-xs font-bold px-3 py-1 rounded-full border border-rose-100">
                  <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span> ค้างคืนอุปกรณ์
                </span>`;
     } else if (row.status === "ไม่อนุมัติ") {
-      badge = `<span class="inline-flex items-center gap-1.5 bg-red-50 text-red-700 text-xs font-bold px-3 py-1 rounded-full border border-red-200">
+      badge = `<span class="status-pill inline-flex items-center gap-1.5 bg-red-50 text-red-700 text-xs font-bold px-3 py-1 rounded-full border border-red-200">
                  <span class="w-2 h-2 rounded-full bg-red-500"></span> ❌ ปฏิเสธคำขอยืม
                </span>`;
     } else {
-      badge = `<span class="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 text-xs font-bold px-3 py-1 rounded-full border border-emerald-100">
+      badge = `<span class="status-pill inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 text-xs font-bold px-3 py-1 rounded-full border border-emerald-100">
                  <span class="w-2 h-2 rounded-full bg-emerald-500"></span> ส่งคืนคลังแล้ว
                </span>`;
     }
 
     let returnDateDisplay = (row.status === "กำลังยืม" || row.status === "รออนุมัติ" || row.status === "ไม่อนุมัติ") ? "-" : (row.returnDate || "-");
 
-    let rowHtml = `<tr onclick="openTxDetailsModal(${JSON.stringify(row).replace(/"/g, '&quot;')})" class="hover:bg-slate-50 transition border-b border-slate-100 bg-white cursor-pointer">
+    const forceMobile = (document.body && document.body.classList && document.body.classList.contains('force-mobile-view'));
+    if (forceMobile) {
+      // Render compact, readable card for mobile users
+      const safeRow = JSON.stringify(row).replace(/"/g, '&quot;');
+      const cardHtml = `
+        <tr class="bg-white rounded-xl mb-3 border border-slate-100 p-3">
+          <td onclick="openTxDetailsModal(${safeRow})" class="p-3 cursor-pointer">
+            <div class="flex justify-between items-start">
+              <div>
+                <div class="text-xxs text-slate-400">รหัสพัสดุ</div>
+                <div class="font-mono font-bold text-slate-900">${row.itemId}</div>
+              </div>
+              <div class="text-right">${badge}</div>
+            </div>
+            <div class="mt-2">
+              <div class="text-sm font-semibold text-slate-700">${row.itemName}</div>
+              <div class="text-xxs text-slate-500 mt-1">ผู้ยืม: <strong>${row.borrowerName}</strong></div>
+              <div class="text-xxs text-slate-500">อีเมล: <span class="font-mono">${row.borrowerEmail}</span></div>
+              <div class="text-xxs text-slate-600 mt-1">จำนวน: <strong>${row.qty} ชิ้น</strong></div>
+              <div class="text-xxs text-slate-600">ยืม: ${row.borrowDate} • คืน: ${row.dueDate}</div>
+              <div class="text-xxs text-slate-500 mt-1">วันที่คืนจริง: <strong class="font-mono">${returnDateDisplay}</strong></div>
+            </div>
+          </td>
+        </tr>`;
+      tbody.innerHTML += cardHtml;
+    } else {
+      let rowHtml = `<tr onclick="openTxDetailsModal(${JSON.stringify(row).replace(/"/g, '&quot;')})" class="hover:bg-slate-50 transition border-b border-slate-100 bg-white cursor-pointer">
       <td class="p-3.5 text-center font-mono font-bold text-slate-900">${row.itemId}</td>
       <td class="p-3.5 font-medium text-slate-700">${row.itemName}</td>
       <td class="p-3.5 text-center font-bold text-slate-800">${row.qty} ชิ้น</td>
@@ -392,7 +427,8 @@ function _renderHistoryRows(tbody, adminApprovalTbody, rows, activeRole) {
       <td class="p-3.5 text-slate-600 font-medium font-mono">${returnDateDisplay}</td>
       <td class="p-3.5 text-center">${badge}</td>
     </tr>`;
-    tbody.innerHTML += rowHtml;
+      tbody.innerHTML += rowHtml;
+    }
 
     if(adminApprovalTbody && row.status === "รออนุมัติ" && (activeRole === "ADMIN" || activeRole === "SUPER_ADMIN")) {
        adminApprovalTbody.innerHTML += `
@@ -724,7 +760,7 @@ function loadDashboard() {
     container.innerHTML = ""; 
     ALL_ITEMS_CACHE.forEach(item => { 
   let isAvailable = item.quantity > 0 && item.status !== "ชำรุด";
-  let statusBadge = isAvailable ? `<span class="bg-emerald-50 text-emerald-700 font-bold px-3 py-1 rounded-full border border-emerald-200 text-xs flex items-center gap-1">🟢 พร้อมยืม (${item.quantity})</span>` : `<span class="bg-rose-50 text-rose-700 font-bold px-3 py-1 rounded-full border border-rose-200 text-xs flex items-center gap-1">🔴 หมด/ถูกยืม</span>`; 
+  let statusBadge = isAvailable ? `<span class="status-pill bg-emerald-50 text-emerald-700 font-bold px-3 py-1 rounded-full border border-emerald-200 text-xs flex items-center gap-1">🟢 พร้อมยืม (${item.quantity})</span>` : `<span class="status-pill bg-rose-50 text-rose-700 font-bold px-3 py-1 rounded-full border border-rose-200 text-xs flex items-center gap-1">🔴 หมด/ถูกยืม</span>`; 
       
       let imgHtml = item.itemPic ? `<img src="${item.itemPic}" class="w-full h-32 object-cover rounded-lg mb-3 border shadow-sm" onerror="this.onerror=null; this.src='https://placehold.co/400x200/cbd5e1/0f172a?text=CPE+Asset';">` : `<div class="w-full h-32 bg-slate-100 rounded-lg mb-3 flex items-center justify-center text-slate-400 text-xs border border-dashed">ไม่มีภาพพัสดุ</div>`;
       
@@ -736,12 +772,12 @@ function loadDashboard() {
           <div>
             <div class="flex justify-between items-start gap-2 mb-3">
               <span class="font-mono font-black text-slate-900 bg-slate-100 px-2.5 py-0.5 rounded text-xs tracking-wider">${item.id}</span>
-              ${statusBadge}
+              <div class="whitespace-nowrap">${statusBadge}</div>
             </div>
             ${imgHtml}
             <h4 class="text-sm font-bold text-slate-800 leading-snug mb-1">${item.name}</h4>
-            <p class="text-xs text-slate-400 mb-1">ประเภท: <span class="font-bold text-slate-600">${item.type || 'ไม่ระบุ'}</span> | คลังเหลือ: <span class="font-bold text-slate-600">${item.quantity || 0} ชิ้น</span></p>
-            <p class="text-xs text-slate-400 mb-2">จำนวนทั้งหมด: <span class="font-bold text-slate-600">${(item.totalQty !== undefined) ? item.totalQty : item.quantity} ชิ้น</span></p>
+            <p class="text-xs text-slate-400 mb-1">ประเภท: <span class="font-bold text-slate-600">${item.type || 'ไม่ระบุ'}</span> | จำนวนทั้งหมด: <span class="font-bold text-slate-600">${(item.totalQty !== undefined) ? item.totalQty : item.quantity} ชิ้น</span></p>
+            <p class="text-xs text-slate-400 mb-2">จำนวนคงเหลือ: <span class="font-bold text-slate-600">${item.quantity || 0} ชิ้น</span></p>
             <p class="text-xs text-slate-500 flex items-center gap-1"><span class="text-slate-400">📍 ห้องจัดเก็บ:</span> ${item.location}</p>
           </div>
           <div class="border-t border-slate-100 mt-4 pt-3 flex justify-between items-center">
@@ -764,28 +800,60 @@ function loadDashboard() {
       tbody.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-slate-400 bg-white">📦 ไม่มีข้อมูลครุภัณฑ์พัสดุในคลังในขณะนี้</td></tr>`; 
       return; 
     } 
-    tbody.innerHTML = ""; 
-    ALL_ITEMS_CACHE.forEach(item => { 
-      let statusBadge = item.status === "พร้อมใช้งาน" ? `<span class="bg-emerald-50 text-emerald-700 font-bold px-2.5 py-1 rounded-full border border-emerald-200 text-xs">🟢 พร้อมใช้งาน</span>` : `<span class="bg-rose-50 text-rose-700 font-bold px-2.5 py-1 rounded-full border border-rose-200 text-xs">🔴 ถูกยืม</span>`; 
-      
-      let tableImgHtml = item.itemPic ? `<img src="${item.itemPic}" class="w-10 h-10 object-cover rounded-md border shadow-sm mx-auto" onerror="this.onerror=null; this.src='https://placehold.co/80/e2e8f0/0f172a?text=CPE';">` : `<div class="w-10 h-10 bg-slate-100 rounded-md border border-dashed flex items-center justify-center text-slate-300 mx-auto text-xxs">No Pic</div>`;
-      
-      tbody.innerHTML += `
+    tbody.innerHTML = "";
+    const forceMobile = document.body && document.body.classList.contains('force-mobile-view');
+    ALL_ITEMS_CACHE.forEach(item => {
+  let statusBadge = item.status === "พร้อมใช้งาน" ? `<span class="status-pill bg-emerald-50 text-emerald-700 font-bold px-2.5 py-1 rounded-full border border-emerald-200 text-xs">🟢 พร้อมใช้งาน</span>` : `<span class="status-pill bg-rose-50 text-rose-700 font-bold px-2.5 py-1 rounded-full border border-rose-200 text-xs">🔴 ถูกยืม</span>`;
+      let tableImgHtml = item.itemPic ? `<img src="${item.itemPic}" class="w-16 h-12 object-cover rounded-md border shadow-sm mx-auto" onerror="this.onerror=null; this.src='https://placehold.co/80/e2e8f0/0f172a?text=CPE';">` : `<div class="w-16 h-12 bg-slate-100 rounded-md border border-dashed flex items-center justify-center text-slate-300 mx-auto text-xxs">No Pic</div>`;
+
+      if (forceMobile) {
+        // Render as stacked card rows for mobile users
+        tbody.innerHTML += `
+          <tr class="bg-white rounded-xl p-3 mb-3 overflow-hidden">
+            <td class="p-3">
+              <div class="flex items-start gap-3">
+                <div>${tableImgHtml}</div>
+                <div class="flex-1">
+                  <div class="flex justify-between items-start">
+                    <div>
+                      <div class="text-xxs text-slate-400">รหัสพัสดุ</div>
+                      <div class="font-mono font-bold text-slate-900">${item.id}</div>
+                    </div>
+                    <div class="text-right whitespace-nowrap">${statusBadge}</div>
+                  </div>
+                  <div class="mt-2">
+                    <div class="text-xs font-semibold text-slate-800 mb-1">${item.name}</div>
+                    <div class="text-xxs text-slate-500">ประเภท: <span class="font-bold text-slate-700">${item.type || 'ครุภัณฑ์'}</span></div>
+                    <div class="text-xxs text-slate-500">รวมทั้งหมด: <span class="font-bold text-slate-700">${(item.totalQty !== undefined) ? item.totalQty : item.quantity}</span> | คงเหลือ: <span class="font-bold text-slate-700">${item.quantity || 0}</span></div>
+                    <div class="text-xxs text-slate-400">📍 ${item.location}</div>
+                  </div>
+                  <div class="mt-3 flex gap-2">
+                    <button onclick="openItemModal('EDIT', '${item.id}')" class="flex-1 bg-slate-100 hover:bg-slate-900 hover:text-amber-400 px-3 py-2 rounded-md transition font-bold text-xs">แก้ไข</button>
+                    <button onclick="deleteItemAction('${item.id}')" class="flex-1 bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white px-3 py-2 rounded-md transition font-bold text-xs">ลบ</button>
+                  </div>
+                </div>
+              </div>
+            </td>
+          </tr>`;
+      } else {
+        // Desktop / admin view remains table row
+        tbody.innerHTML += `
         <tr class="hover:bg-slate-50 transition border-b border-slate-100 bg-white">
           <td class="p-2 text-center">${tableImgHtml}</td>
           <td class="p-3.5 font-mono font-bold text-slate-900 text-left">${item.id}</td>
           <td class="p-3.5 font-medium text-slate-700 text-left">${item.name}</td>
           <td class="p-3.5 text-slate-600 text-center"><span class="bg-slate-100 text-slate-800 text-xs px-2.5 py-0.5 rounded-md font-bold">${item.type || 'ครุภัณฑ์'}</span></td>
-          <td class="p-3.5 font-bold text-slate-900 text-center">${item.quantity || 0}</td>
           <td class="p-3.5 font-bold text-slate-900 text-center">${(item.totalQty !== undefined) ? item.totalQty : item.quantity}</td>
+          <td class="p-3.5 font-bold text-slate-900 text-center">${item.quantity || 0}</td>
           <td class="p-3.5 text-slate-500 text-left">${item.location}</td>
           <td class="p-3.5 text-center">${statusBadge}</td>
           <td class="p-3.5 text-center">
             <button onclick="openItemModal('EDIT', '${item.id}')" class="text-xs bg-slate-100 hover:bg-slate-900 hover:text-amber-400 px-3 py-1 rounded-md transition font-bold mr-1">แก้ไข</button>
             <button onclick="deleteItemAction('${item.id}')" class="text-xs bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white px-3 py-1 rounded-md transition font-bold border border-rose-100">ลบ</button>
           </td>
-        </tr>`; 
-    }); 
+        </tr>`;
+      }
+    });
   }
   
   function renderUsersTable() { 

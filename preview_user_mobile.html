@@ -1,0 +1,144 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Preview - USER Mobile View (Full)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- embed full CSS.html content -->
+  <style>
+  /* START embedded CSS.html */
+  @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap');
+
+  :root{ --page-bg:#f8fafc; --muted:#94a3b8; --heading:#0f172a; --accent:#f59e0b }
+  html,body{height:100%}
+  body{
+    font-family:'Sarabun',sans-serif;
+    background-color:var(--page-bg)!important;
+    font-size:14px;color:var(--heading);
+    -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
+  }
+
+  .sidebar-btn, .user-sidebar-btn{ color:var(--muted); background:transparent; border-left:4px solid transparent; padding:.6rem .9rem; font-size:.92rem }
+  .sidebar-btn:hover, .user-sidebar-btn:hover{ background:rgba(255,255,255,0.04); color:#fff }
+  .sidebar-btn.active, .user-sidebar-btn.active{ background:var(--accent)!important; color:var(--heading)!important; border-left-color:#fbbf24!important }
+
+  input,select,textarea{ outline:none; border:1px solid #cbd5e1!important; font-size:.95rem; padding:.55rem .6rem }
+  input:focus,select:focus,textarea:focus{ border-color:var(--heading)!important; box-shadow:0 0 0 3px rgba(15,23,42,.06)!important }
+
+  th{ font-size:.9rem!important; letter-spacing:.02em; color:#475569!important; font-weight:700!important; background-color:var(--page-bg)!important; padding:10px 12px!important; text-align:center }
+  td{ vertical-align:middle!important; font-size:.95rem; padding:10px 12px!important }
+
+  #user-items-grid-container > div, .bg-white.rounded-xl.shadow-sm.border{ padding:1rem!important }
+  .img-thumbnail{ max-height:160px; object-fit:cover }
+  .fixed.inset-0 .rounded-2xl, .fixed.inset-0 .rounded-xl{ max-width:720px }
+
+  .text-xxs{ font-size:.72rem!important } .text-xs{ font-size:.82rem!important }
+
+  .animate-fadeIn{ animation:slideUpFade .22s ease-out forwards }
+  @keyframes slideUpFade{ from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+
+  table.w-full th, table.w-full td{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px }
+  table.w-full th:nth-child(3), table.w-full td:nth-child(3){ white-space:normal; overflow-wrap:anywhere; word-break:break-word; max-width:420px }
+
+  @media (max-width:640px){
+    th,td{ font-size:.78rem!important; padding:8px 6px!important }
+    .img-thumbnail{ max-height:110px }
+    #user-items-grid-container{ grid-template-columns:repeat(1,minmax(0,1fr)) }
+    .fixed.inset-0 .rounded-2xl, .fixed.inset-0 .rounded-xl{ max-width:94% }
+    table.w-full th, table.w-full td{ white-space:normal; max-width:none }
+  }
+
+  .filter-btn{ color:#475569 }
+  .filter-btn.bg-slate-900{ background-color:#0f172a!important; color:#fbbf24!important }
+
+  /* Mobile-first forced view for USER role */
+  body.force-mobile-view { overflow-x: hidden; }
+  body.force-mobile-view #sidebar-menu { display: none !important; }
+  body.force-mobile-view #sidebar-overlay { display: none !important; }
+  body.force-mobile-view header { position: sticky; top: 0; z-index: 60; }
+  body.force-mobile-view #user-items-grid-container { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; gap: 12px !important; }
+  body.force-mobile-view table.w-full { display: block !important; }
+  body.force-mobile-view table.w-full thead, body.force-mobile-view table.w-full tbody, body.force-mobile-view table.w-full tr { display:block !important; width:100% !important; }
+  body.force-mobile-view table.w-full tr { margin-bottom: 12px; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(15,23,42,0.06); }
+  body.force-mobile-view table.w-full td, body.force-mobile-view table.w-full th { display: flex !important; justify-content: space-between; padding: 10px !important; white-space: normal !important; border-bottom: 0 !important; }
+  body.force-mobile-view table.w-full td:first-child, body.force-mobile-view table.w-full th:first-child { padding-top: 12px !important; }
+  body.force-mobile-view table.w-full td .label { font-weight:700; color:#475569; margin-right:8px; }
+  body.force-mobile-view td .btn-group { display:flex; gap:8px; }
+  /* END embedded CSS.html */
+  </style>
+</head>
+<body>
+  <!-- Header / navbar mock -->
+  <header class="bg-slate-900 text-white px-4 py-3 flex justify-between items-center">
+    <div class="flex items-center gap-3">
+      <button class="lg:hidden text-amber-400 text-2xl">☰</button>
+      <div>
+        <div class="text-xl">🖥️</div>
+      </div>
+      <div>
+        <div class="text-sm font-bold">CPE Smart Asset</div>
+        <div class="text-xxs text-slate-300">วิศวกรรมคอมพิวเตอร์</div>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <div id="user-display-email" class="text-xs">user@psru.ac.th</div>
+    </div>
+  </header>
+
+  <!-- Main content -->
+  <main class="p-4">
+    <section class="mb-4">
+      <h2 class="text-base font-bold">📦 รายการครุภัณฑ์</h2>
+      <p class="text-xxs text-slate-500">มุมมองมือถือสำหรับผู้ใช้ทั่วไป</p>
+    </section>
+
+    <div id="user-items-grid-container" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+  </main>
+
+  <script>
+    // Mock current role = USER and hide edit/delete for USER
+    const CURRENT_USER_ROLE = 'USER';
+    if (CURRENT_USER_ROLE === 'USER') document.body.classList.add('force-mobile-view');
+
+    // Mock data (same as real structure)
+    const ALL_ITEMS_CACHE = [
+      { id:'ITM-001', name:'กล้อง DSLR Canon 200D', type:'อุปกรณ์ภาพ', quantity:3, totalQty:5, location:'ห้อง 101', status:'พร้อมใช้งาน', itemPic:'' },
+      { id:'ITM-002', name:'ไมโครโฟนไร้สาย Sennheiser รุ่นทดสอบความยาวของชื่อที่เกินบรรทัดเดียว', type:'โสตทัศน์', quantity:0, totalQty:2, location:'ห้อง 102B', status:'ถูกยืม', itemPic:'' },
+      { id:'ITM-003', name:'โปรเจคเตอร์ BenQ รุ่นเล็ก', type:'โสตทัศน์', quantity:1, totalQty:1, location:'ห้อง 201', status:'พร้อมใช้งาน', itemPic:'' }
+    ];
+
+    const container = document.getElementById('user-items-grid-container');
+    ALL_ITEMS_CACHE.forEach(item => {
+      const card = document.createElement('div');
+      card.className = 'bg-white rounded-xl shadow-sm border p-4';
+      const statusHtml = item.status === 'พร้อมใช้งาน'
+        ? '<span class="status-pill bg-emerald-50 text-emerald-700 font-bold px-3 py-1 rounded-full border border-emerald-200 text-xs">🟢 พร้อมยืม</span>'
+        : '<span class="status-pill bg-rose-50 text-rose-700 font-bold px-3 py-1 rounded-full border border-rose-200 text-xs">🔴 ถูกยืม</span>';
+      card.innerHTML = `
+        <div class="flex gap-3">
+          <div style="width:28%"><div style="background:#e2e8f0;height:72px;border-radius:8px"></div></div>
+          <div style="flex:1">
+              <div class="flex justify-between items-start">
+              <div>
+                <div class="text-xxs text-slate-400">รหัส: <span class="font-mono">${item.id}</span></div>
+                <div class="text-sm font-bold text-slate-800">${item.name}</div>
+              </div>
+              <div class="whitespace-nowrap">${statusHtml}</div>
+            </div>
+            <div class="mt-2 text-xxs text-slate-500">ประเภท: <strong class="text-slate-700">${item.type}</strong></div>
+            <div class="mt-1 text-xxs text-slate-600">จำนวนทั้งหมด: <strong>${item.totalQty}</strong> | คงเหลือ: <strong>${item.quantity}</strong></div>
+            <div class="mt-1 text-xxs text-slate-400">📍 ${item.location}</div>
+            <div class="mt-3 flex gap-2">
+              ${CURRENT_USER_ROLE !== 'USER' ? `<button class="flex-1 bg-slate-100 hover:bg-slate-900 hover:text-amber-400 px-3 py-2 rounded-md font-bold text-xs">แก้ไข</button>` : ''}
+              ${CURRENT_USER_ROLE !== 'USER' ? `<button class="flex-1 bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white px-3 py-2 rounded-md font-bold text-xs">ลบ</button>` : ''}
+              ${item.status === 'พร้อมใช้งาน' ? `<button class="flex-1 bg-slate-900 text-amber-400 px-3 py-2 rounded-md font-bold text-xs">🛒 เพิ่มลงตะกร้า</button>` : `<button disabled class="flex-1 bg-slate-100 text-slate-400 px-3 py-2 rounded-md font-bold text-xs">พัสดุไม่พร้อม</button>`}
+            </div>
+          </div>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+  </script>
+</body>
+</html>
