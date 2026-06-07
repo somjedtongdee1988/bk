@@ -405,60 +405,68 @@ function _renderHistoryRows(tbody, adminApprovalTbody, rows, activeRole) {
   tbody.innerHTML = "";
   if (adminApprovalTbody) adminApprovalTbody.innerHTML = "";
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
   let approvalCountForBadge = 0;
 
   rows.forEach(function(row) {
-    // 1. กำหนด Badge สถานะ
+    // 1. กำหนด Badge สถานะ (ใช้เหมือนกันทั้ง USER และ ADMIN)
     let badge = "";
     if (row.status === "รออนุมัติ") {
       approvalCountForBadge++;
-      badge = `<span class="status-pill inline-flex items-center gap-1.5 bg-amber-50 text-amber-800 text-xs font-bold px-3 py-1 rounded-full border border-amber-200"><span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> ⏳ รออนุมัติ</span>`;
+      badge = `<span class="status-pill inline-flex items-center gap-1.5 bg-amber-50 text-amber-800 text-xs font-bold px-3 py-1 rounded-full border border-amber-200">
+                 <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> ⏳ รออนุมัติจากเจ้าหน้าที่
+               </span>`;
     } else if (row.status === "กำลังยืม") {
-      badge = `<span class="status-pill inline-flex items-center gap-1.5 bg-rose-50 text-rose-700 text-xs font-bold px-3 py-1 rounded-full border border-rose-100"><span class="w-2 h-2 rounded-full bg-rose-500"></span> กำลังยืม</span>`;
+      badge = `<span class="status-pill inline-flex items-center gap-1.5 bg-rose-50 text-rose-700 text-xs font-bold px-3 py-1 rounded-full border border-rose-100">
+                 <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span> ค้างคืนอุปกรณ์
+               </span>`;
     } else if (row.status === "ไม่อนุมัติ") {
-      badge = `<span class="status-pill inline-flex items-center gap-1.5 bg-red-50 text-red-700 text-xs font-bold px-3 py-1 rounded-full border border-red-200">❌ ปฏิเสธ</span>`;
+      badge = `<span class="status-pill inline-flex items-center gap-1.5 bg-red-50 text-red-700 text-xs font-bold px-3 py-1 rounded-full border border-red-200">
+                 <span class="w-2 h-2 rounded-full bg-red-500"></span> ❌ ปฏิเสธคำขอยืม
+               </span>`;
     } else {
-      badge = `<span class="status-pill inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 text-xs font-bold px-3 py-1 rounded-full border border-emerald-100">✅ คืนแล้ว</span>`;
+      badge = `<span class="status-pill inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 text-xs font-bold px-3 py-1 rounded-full border border-emerald-100">
+                 <span class="w-2 h-2 rounded-full bg-emerald-500"></span> ส่งคืนคลังแล้ว
+               </span>`;
     }
 
-    let isOverdue = false;
-    if (row.status === "กำลังยืม") {
-      let dParts = row.dueDate.split('/'); 
-      let dueDate = new Date(dParts[2], dParts[1] - 1, dParts[0]);
-      if (dueDate < today) isOverdue = true;
-    }
 
     let returnDateDisplay = (row.status === "กำลังยืม" || row.status === "รออนุมัติ" || row.status === "ไม่อนุมัติ") ? "-" : (row.returnDate || "-");
 
     // 2. เงื่อนไขการเรนเดอร์แยกตามสิทธิ์
     if (activeRole === "USER") {
       // ตารางรูปแบบใหม่สำหรับ USER
-   let rowHtml = `
-      <tr onclick="openTxDetailsModal(${JSON.stringify(row).replace(/"/g, '&quot;')})" class="${isOverdue ? 'row-overdue' : ''} hover:bg-slate-50 transition border-b border-slate-100 bg-white cursor-pointer">
+      let rowHtml = `
+      <tr onclick="openTxDetailsModal(${JSON.stringify(row).replace(/"/g, '&quot;')})" class="hover:bg-slate-50 transition border-b border-slate-100 bg-white cursor-pointer">
         <td data-label="รหัสพัสดุ" class="p-4 font-mono font-bold text-slate-900">${row.itemId}</td>
-        <td data-label="ชื่อรายการ" class="p-4 font-medium text-slate-700">${row.itemName} ${isOverdue ? '⚠️' : ''}</td>
+        <td data-label="ชื่อรายการ" class="p-4 font-medium text-slate-700">${row.itemName}</td>
         <td data-label="จำนวน" class="p-4 text-center font-bold text-slate-800">${row.qty}</td>
+        <td data-label="ผู้ยืม" class="p-4">
+          <div class="text-sm font-bold text-slate-800">${row.borrowerName || '-'}</div>
+          <div class="text-xs text-slate-500 font-mono">${row.borrowerEmail || '-'}</div>
+        </td>
         <td data-label="วันที่ยืม" class="p-4 text-slate-600">${row.borrowDate}</td>
         <td data-label="กำหนดคืน" class="p-4 text-slate-600">${row.dueDate}</td>
+        <td data-label="คืนจริง" class="p-4 font-mono text-slate-700">${returnDateDisplay}</td>
         <td data-label="สถานะ" class="p-4 text-right">${badge}</td>
       </tr>`;
-      tbody.insertAdjacentHTML('beforeend', rowHtml);
+      tbody.innerHTML += rowHtml;
     } else {
-      // ตารางสำหรับ ADMIN (โครงสร้างเดิมที่แอดมินใช้)
+      // ตารางรูปแบบเดิมสำหรับ ADMIN/SUPER_ADMIN (รักษาโครงสร้างเดิมที่แอดมินคุ้นเคย)
       let rowHtml = `
-      <tr onclick="openTxDetailsModal(${JSON.stringify(row).replace(/"/g, '&quot;')})" class="hover:bg-slate-50 transition border-b border-slate-100 bg-white cursor-pointer ${isOverdue ? 'row-overdue' : ''}">
+      <tr onclick="openTxDetailsModal(${JSON.stringify(row).replace(/"/g, '&quot;')})" class="hover:bg-slate-50 transition border-b border-slate-100 bg-white cursor-pointer">
         <td class="p-3 text-center font-mono font-bold text-slate-900">${row.itemId}</td>
         <td class="p-3 font-medium text-slate-700">${row.itemName}</td>
         <td class="p-3 text-center font-bold text-slate-800">${row.qty} ชิ้น</td>
-        <td class="p-3 text-slate-600">${row.borrowerName || '-'}</td>
-        <td class="p-3 text-slate-600">${row.borrowDate}</td>
-        <td class="p-3 text-slate-600">${row.dueDate}</td>
-        <td class="p-3 text-slate-600 font-mono">${returnDateDisplay}</td>
+        <td class="p-3 text-slate-600">
+          <div class="text-xs">${row.borrowerName || '-'}</div>
+          <div class="text-xxs text-slate-400 font-mono">${row.borrowerEmail || '-'}</div>
+        </td>
+        <td class="p-3 text-slate-600 font-medium">${row.borrowDate}</td>
+        <td class="p-3 text-slate-600 font-medium">${row.dueDate}</td>
+        <td class="p-3 text-slate-600 font-medium font-mono">${returnDateDisplay}</td>
         <td class="p-3 text-center">${badge}</td>
       </tr>`;
-      tbody.insertAdjacentHTML('beforeend', rowHtml);
+      tbody.innerHTML += rowHtml;
     }
 
     // 3. ส่วนของตารางอนุมัติสำหรับ Admin (คงไว้เหมือนเดิม)
