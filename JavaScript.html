@@ -400,15 +400,19 @@ function _renderHistoryRows(tbody, adminApprovalTbody, rows, activeRole) {
                 <div class="text-xxs text-slate-400">รหัสพัสดุ</div>
                 <div class="font-mono font-bold text-slate-900">${row.itemId}</div>
               </div>
-              <div class="text-right">${badge}</div>
+              <div class="text-right whitespace-nowrap">${badge}</div>
             </div>
             <div class="mt-2">
               <div class="text-sm font-semibold text-slate-700">${row.itemName}</div>
-              <div class="text-xxs text-slate-500 mt-1">ผู้ยืม: <strong>${row.borrowerName}</strong></div>
-              <div class="text-xxs text-slate-500">อีเมล: <span class="font-mono">${row.borrowerEmail}</span></div>
-              <div class="text-xxs text-slate-600 mt-1">จำนวน: <strong>${row.qty} ชิ้น</strong></div>
-              <div class="text-xxs text-slate-600">ยืม: ${row.borrowDate} • คืน: ${row.dueDate}</div>
-              <div class="text-xxs text-slate-500 mt-1">วันที่คืนจริง: <strong class="font-mono">${returnDateDisplay}</strong></div>
+              <div class="mt-2 grid grid-cols-2 gap-2 text-xxs text-slate-600">
+                <div><span class="text-xxs text-slate-400">ผู้ยืม</span><div class="font-semibold">${row.borrowerName}</div></div>
+                <div><span class="text-xxs text-slate-400">อีเมล</span><div class="font-mono">${row.borrowerEmail}</div></div>
+                <div><span class="text-xxs text-slate-400">จำนวน</span><div class="font-bold">${row.qty} ชิ้น</div></div>
+                <div><span class="text-xxs text-slate-400">วันที่ยืม</span><div>${row.borrowDate}</div></div>
+              </div>
+              <div class="mt-2 text-xxs text-slate-600">กำหนดคืน: ${row.dueDate}</div>
+              <div class="mt-1 text-xxs text-slate-500">วันที่คืนจริง: <strong class="font-mono">${returnDateDisplay}</strong></div>
+              <div class="mt-2 text-xxs text-slate-500"><strong>วัตถุประสงค์:</strong> ${row.purpose || '-'}</div>
             </div>
           </td>
         </tr>`;

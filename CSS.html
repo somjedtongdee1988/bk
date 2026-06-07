@@ -74,9 +74,13 @@
   body.force-mobile-view table.w-full { display: block !important; }
   body.force-mobile-view table.w-full thead, body.force-mobile-view table.w-full tbody, body.force-mobile-view table.w-full tr { display:block !important; width:100% !important; }
   body.force-mobile-view table.w-full tr { margin-bottom: 12px; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(15,23,42,0.06); }
-  body.force-mobile-view table.w-full td, body.force-mobile-view table.w-full th { display: flex !important; justify-content: space-between; padding: 10px !important; white-space: normal !important; border-bottom: 0 !important; }
+  /* Use block layout for cells so content stacks vertically similar to preview cards */
+  body.force-mobile-view table.w-full td, body.force-mobile-view table.w-full th { display: block !important; padding: 10px !important; white-space: normal !important; border-bottom: 0 !important; }
   body.force-mobile-view table.w-full td:first-child, body.force-mobile-view table.w-full th:first-child { padding-top: 12px !important; }
   body.force-mobile-view table.w-full td .label { font-weight:700; color:#475569; margin-right:8px; }
+  /* Ensure label and value stack clearly in mobile table cells */
+  body.force-mobile-view table.w-full td .label { display:block; margin-bottom:6px; }
+  body.force-mobile-view table.w-full td .value { display:block; color:#0f172a; }
 
   /* hide admin-only columns/actions to simplify view */
   body.force-mobile-view td .btn-group { display:flex; gap:8px; }
