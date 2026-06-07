@@ -243,7 +243,7 @@
 
           <nav id="user-nav-menu" class="hidden px-2 space-y-1">
             <button type="button" onclick="switchTab('borrow-tab', event)" class="user-sidebar-btn active flex items-center gap-2.5 w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold transition"><span>🔄</span> งานยืม-คืนพัสดุ</button>
-            <button type="button" onclick="switchTab('items-tab', event)" class="user-sidebar-btn flex items-center gap-2.5 w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold transition"><span>📦</span> พัสดุครุภัณฑ์ทั้งหมด</button>
+            <button type="button" onclick="switchTab('user-items-tab', event)" class="user-sidebar-btn flex items-center gap-2.5 w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold transition"><span>📦</span> พัสดุครุภัณฑ์ทั้งหมด</button>
           </nav>
         </div>
 
@@ -409,7 +409,7 @@
               class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4 border-b border-slate-100 pb-3">
               <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wide">📦 คลังข้อมูลครุภัณฑ์อุปกรณ์ทั้งหมด
               </h3>
-              <button type="button" onclick="openItemModal('ADD')" class="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 text-amber-400 text-xs font-bold px-4 py-2 rounded-lg transition shadow">+ เพิ่มพัสดุใหม่</button>
+              <button id="admin-add-item-btn" type="button" onclick="openItemModal('ADD')" class="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 text-amber-400 text-xs font-bold px-4 py-2 rounded-lg transition shadow">+ เพิ่มพัสดุใหม่</button>
             </div>
             <div class="overflow-x-auto w-full">
               <table class="w-full text-xs sm:text-sm border-collapse text-center min-w-[800px]">

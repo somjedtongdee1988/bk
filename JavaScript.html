@@ -317,7 +317,18 @@
                 mobileTabs.classList.remove('hidden');
               }
             }
-          }
+            }
+            // Hide admin-only add button for USER
+            try {
+              const addBtn = document.getElementById('admin-add-item-btn');
+              if (addBtn) {
+                if (CURRENT_USER_ROLE === 'ADMIN' || CURRENT_USER_ROLE === 'SUPER_ADMIN') {
+                  addBtn.classList.remove('hidden');
+                } else {
+                  addBtn.classList.add('hidden');
+                }
+              }
+            } catch(e) { /* ignore */ }
         } catch(e) { console.warn('mobile-top-tabs init failed', e); }
 
         loadUserHistoryData();
@@ -419,8 +430,10 @@ function _renderHistoryRows(tbody, adminApprovalTbody, rows, activeRole) {
 
     let returnDateDisplay = (row.status === "กำลังยืม" || row.status === "รออนุมัติ" || row.status === "ไม่อนุมัติ") ? "-" : (row.returnDate || "-");
 
-    const forceMobile = (document.body && document.body.classList && document.body.classList.contains('force-mobile-view'));
-    if (forceMobile) {
+  const forceMobile = (document.body && document.body.classList && document.body.classList.contains('force-mobile-view'));
+  // If this is the main user history tbody we prefer table rows even on mobile
+  const preferTable = (tbody.id === 'user-history-tbody');
+  if (forceMobile && !preferTable) {
       // Render compact, readable card for mobile users
       const safeRow = JSON.stringify(row).replace(/"/g, '&quot;');
       const cardHtml = `
