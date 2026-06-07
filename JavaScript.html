@@ -482,6 +482,7 @@ function _renderHistoryRows(tbody, adminApprovalTbody, rows, activeRole) {
            <td class="p-3 text-center space-x-1">
              <button onclick="executeApproveAction('${row.transId}', '${row.itemId}')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-2.5 py-1.5 rounded-lg transition shadow-sm text-xxs">📋 อนุมัติ</button>
              <button onclick="executeRejectAction('${row.transId}', '${row.itemId}')" class="bg-rose-600 hover:bg-rose-700 text-white font-black px-2.5 py-1.5 rounded-lg transition shadow-sm text-xxs">❌ ปฏิเสธ</button>
+
            </td>
          </tr>`;
     }
@@ -682,16 +683,20 @@ function loadUserHistoryData() {
       <div class="flex justify-between pt-1"><strong>สถานะปัจจุบัน:</strong> <span class="font-bold">${row.status}</span></div>
     `;
     
+    // ซ่อนปุ่มเริ่มต้น
     if(btnApprove) btnApprove.classList.add("hidden");
     if(btnReturn) btnReturn.classList.add("hidden");
 
+    // เงื่อนไขสำหรับ ADMIN ในการอนุมัติ
     if (row.status === "รออนุมัติ" && (CURRENT_USER_ROLE === "ADMIN" || CURRENT_USER_ROLE === "SUPER_ADMIN") && btnApprove) {
       btnApprove.classList.remove("hidden");
       btnApprove.onclick = function() {
          closeModal("tx-details-modal");
          executeApproveAction(row.transId, row.itemId);
       };
-    } else if (row.status === "กำลังยืม" && btnReturn) {
+    } 
+    // เงื่อนไขสำหรับ ADMIN ในการรับคืนพัสดุ (เพิ่มการเช็คสิทธิ์ให้ชัดเจน)
+    else if (row.status === "กำลังยืม" && (CURRENT_USER_ROLE === "ADMIN" || CURRENT_USER_ROLE === "SUPER_ADMIN") && btnReturn) {
       btnReturn.classList.remove("hidden");
       btnReturn.onclick = function() {
         closeModal("tx-details-modal");
