@@ -306,10 +306,10 @@
                 b1.innerText = '🔄 งานยืม-คืน พัสดุ';
                 b1.onclick = (e) => switchTab('borrow-tab', e);
                 const b2 = document.createElement('button');
-                b2.setAttribute('data-tab','items-tab');
+                b2.setAttribute('data-tab','user-items-tab');
                 b2.className = 'px-3 py-2 rounded-md bg-slate-100 text-slate-700 font-bold';
                 b2.innerText = '📦 พัสดุครุภัณฑ์ทั้งหมด';
-                b2.onclick = (e) => switchTab('items-tab', e);
+                b2.onclick = (e) => switchTab('user-items-tab', e);
                 mobileTabs.appendChild(b1);
                 mobileTabs.appendChild(b2);
                 mainEl.insertBefore(mobileTabs, mainEl.firstChild);
