@@ -301,10 +301,12 @@
                 mobileTabs.id = 'mobile-top-tabs';
                 mobileTabs.className = 'mb-4 flex gap-2';
                 const b1 = document.createElement('button');
+                b1.setAttribute('data-tab','borrow-tab');
                 b1.className = 'px-3 py-2 rounded-md bg-amber-500 text-slate-900 font-bold';
                 b1.innerText = '🔄 งานยืม-คืน พัสดุ';
                 b1.onclick = (e) => switchTab('borrow-tab', e);
                 const b2 = document.createElement('button');
+                b2.setAttribute('data-tab','items-tab');
                 b2.className = 'px-3 py-2 rounded-md bg-slate-100 text-slate-700 font-bold';
                 b2.innerText = '📦 พัสดุครุภัณฑ์ทั้งหมด';
                 b2.onclick = (e) => switchTab('items-tab', e);
@@ -764,6 +766,21 @@ function submitProfileForm(e) {
     if(sidebar) sidebar.classList.add("-translate-x-full");
     if(overlay) overlay.classList.add("hidden");
   }
+  // keep mobile-top-tabs active state in sync with current tab
+  try {
+    const mobileTabs = document.getElementById('mobile-top-tabs');
+    if (mobileTabs) {
+      mobileTabs.querySelectorAll('button').forEach(btn => {
+        btn.classList.remove('bg-amber-500','text-slate-900');
+        btn.classList.add('bg-slate-100','text-slate-700');
+        const dataTab = btn.getAttribute('data-tab');
+        if (dataTab && dataTab === tabId) {
+          btn.classList.remove('bg-slate-100','text-slate-700');
+          btn.classList.add('bg-amber-500','text-slate-900');
+        }
+      });
+    }
+  } catch(e){/* ignore */}
 } 
 
 function loadDashboard() {
@@ -836,45 +853,12 @@ function loadDashboard() {
     tbody.innerHTML = "";
     const forceMobile = document.body && document.body.classList.contains('force-mobile-view');
     ALL_ITEMS_CACHE.forEach(item => {
-  let statusBadge = item.status === "พร้อมใช้งาน" ? `<span class="status-pill bg-emerald-50 text-emerald-700 font-bold px-2.5 py-1 rounded-full border border-emerald-200 text-xs">🟢 พร้อมใช้งาน</span>` : `<span class="status-pill bg-rose-50 text-rose-700 font-bold px-2.5 py-1 rounded-full border border-rose-200 text-xs">🔴 ถูกยืม</span>`;
+      const isAdmin = (typeof CURRENT_USER_ROLE !== 'undefined' && (CURRENT_USER_ROLE === 'ADMIN' || CURRENT_USER_ROLE === 'SUPER_ADMIN'));
+      let statusBadge = item.status === "พร้อมใช้งาน" ? `<span class="status-pill bg-emerald-50 text-emerald-700 font-bold px-2.5 py-1 rounded-full border border-emerald-200 text-xs">🟢 พร้อมใช้งาน</span>` : `<span class="status-pill bg-rose-50 text-rose-700 font-bold px-2.5 py-1 rounded-full border border-rose-200 text-xs">🔴 ถูกยืม</span>`;
       let tableImgHtml = item.itemPic ? `<img src="${item.itemPic}" class="w-16 h-12 object-cover rounded-md border shadow-sm mx-auto" onerror="this.onerror=null; this.src='https://placehold.co/80/e2e8f0/0f172a?text=CPE';">` : `<div class="w-16 h-12 bg-slate-100 rounded-md border border-dashed flex items-center justify-center text-slate-300 mx-auto text-xxs">No Pic</div>`;
 
-      if (forceMobile) {
-        // Render as stacked card rows for mobile users
-        // Only show admin action buttons to non-USER roles
-        const mobileActionButtons = (typeof CURRENT_USER_ROLE === 'undefined' || CURRENT_USER_ROLE !== 'USER') ? `
-                  <div class="mt-3 flex gap-2">
-                    <button onclick="openItemModal('EDIT', '${item.id}')" class="flex-1 bg-slate-100 hover:bg-slate-900 hover:text-amber-400 px-3 py-2 rounded-md transition font-bold text-xs">แก้ไข</button>
-                    <button onclick="deleteItemAction('${item.id}')" class="flex-1 bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white px-3 py-2 rounded-md transition font-bold text-xs">ลบ</button>
-                  </div>` : '';
-
-        tbody.innerHTML += `
-          <tr class="bg-white rounded-xl p-3 mb-3 overflow-hidden">
-            <td class="p-3">
-              <div class="flex items-start gap-3">
-                <div>${tableImgHtml}</div>
-                <div class="flex-1">
-                  <div class="flex justify-between items-start">
-                    <div>
-                      <div class="text-xxs text-slate-400">รหัสพัสดุ</div>
-                      <div class="font-mono font-bold text-slate-900">${item.id}</div>
-                    </div>
-                    <div class="text-right whitespace-nowrap">${statusBadge}</div>
-                  </div>
-                  <div class="mt-2">
-                    <div class="text-xs font-semibold text-slate-800 mb-1">${item.name}</div>
-                    <div class="text-xxs text-slate-500">ประเภท: <span class="font-bold text-slate-700">${item.type || 'ครุภัณฑ์'}</span></div>
-                    <div class="text-xxs text-slate-500">รวมทั้งหมด: <span class="font-bold text-slate-700">${(item.totalQty !== undefined) ? item.totalQty : item.quantity}</span> | คงเหลือ: <span class="font-bold text-slate-700">${item.quantity || 0}</span></div>
-                    <div class="text-xxs text-slate-400">📍 ${item.location}</div>
-                  </div>
-                  ${mobileActionButtons}
-                </div>
-              </div>
-            </td>
-          </tr>`;
-      } else {
-        // Desktop / admin view remains table row
-        tbody.innerHTML += `
+      // Always render as table rows (user prefers table view). For mobile the CSS will stack rows visually.
+      tbody.innerHTML += `
         <tr class="hover:bg-slate-50 transition border-b border-slate-100 bg-white">
           <td class="p-2 text-center">${tableImgHtml}</td>
           <td class="p-3.5 font-mono font-bold text-slate-900 text-left">${item.id}</td>
@@ -885,13 +869,12 @@ function loadDashboard() {
           <td class="p-3.5 text-slate-500 text-left">${item.location}</td>
           <td class="p-3.5 text-center">${statusBadge}</td>
           <td class="p-3.5 text-center">
-            ${ (typeof CURRENT_USER_ROLE === 'undefined' || CURRENT_USER_ROLE !== 'USER') ? `
+            ${ isAdmin ? `
             <button onclick="openItemModal('EDIT', '${item.id}')" class="text-xs bg-slate-100 hover:bg-slate-900 hover:text-amber-400 px-3 py-1 rounded-md transition font-bold mr-1">แก้ไข</button>
             <button onclick="deleteItemAction('${item.id}')" class="text-xs bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white px-3 py-1 rounded-md transition font-bold border border-rose-100">ลบ</button>
             ` : '' }
           </td>
         </tr>`;
-      }
     });
   }
   
