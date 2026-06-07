@@ -30,10 +30,11 @@ function uploadFileToDrive(username, base64Data, folderId) {
 function initDatabase() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   if (!ss.getSheetByName("Items")) {
-    const itemSheet = ss.insertSheet("Items");
-    itemSheet.appendRow(["itemID", "itemName", "itemType", "quantity", "location", "status", "itemPic", "qrCode"]);
-    itemSheet.appendRow(["CPE-001", "Projector Sony 4K", "ครุภัณฑ์", 5, "ห้องแล็บ 404", "พร้อมใช้งาน", "", ""]);
-    itemSheet.appendRow(["CPE-002", "Visualizer", "ครุภัณฑ์", 2, "ห้องพักอาจารย์", "พร้อมใช้งาน", "", ""]);
+  const itemSheet = ss.insertSheet("Items");
+  // เพิ่มคอลัมน์ totalQty เพื่อเก็บ "จำนวนทั้งหมด" ของพัสดุ (คอลัมน์สุดท้าย)
+  itemSheet.appendRow(["itemID", "itemName", "itemType", "quantity", "location", "status", "itemPic", "qrCode", "totalQty"]);
+  itemSheet.appendRow(["CPE-001", "Projector Sony 4K", "ครุภัณฑ์", 5, "ห้องแล็บ 404", "พร้อมใช้งาน", "", "", 5]);
+  itemSheet.appendRow(["CPE-002", "Visualizer", "ครุภัณฑ์", 2, "ห้องพักอาจารย์", "พร้อมใช้งาน", "", "", 2]);
   }
   if (!ss.getSheetByName("Transactions")) {
     const transSheet = ss.insertSheet("Transactions");
@@ -772,7 +773,8 @@ function getDashboardData() {
         location: row[4],
         status: status,
         itemPic: row[6] || "",
-        qr: row[7] || `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${row[0]}`
+        qr: row[7] || `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${row[0]}`,
+        totalQty: (row[8] !== undefined && row[8] !== "") ? parseInt(row[8]) : qty
       });
     }
 
@@ -902,7 +904,19 @@ function saveItemData(mode, id, name, loc, stat, itemType, quantity, itemPicBase
 
     if (mode === "ADD") {
       for (let i = 1; i < data.length; i++) {
-        if (data[i][0] && data[i][0].toString().trim() === targetId) return { success: false, message: "❌ รหัสพัสดุนี้มีอยู่แล้ว" };
+        if (data[i][0] && data[i][0].toString().trim() === targetId) {
+          // หากพบรหัสพัสดุเดิม ให้เพิ่มจำนวนที่ส่งมาเป็นการเพิ่มสต็อก
+          const existingQty = parseInt(data[i][3]) || 0;
+            const newQty = existingQty + parsedQuantity;
+            sheet.getRange(i + 1, 4).setValue(newQty);
+            // ปรับสถานะตามสต็อก
+            sheet.getRange(i + 1, 6).setValue(newQty > 0 ? "พร้อมใช้งาน" : "ถูกยืม");
+            // อัปเดต totalQty ด้วย (เพิ่มจำนวนทั้งหมดตาม parsedQuantity)
+            const existingTotal = parseInt(data[i][8]) || existingQty;
+            sheet.getRange(i + 1, 9).setValue(existingTotal + parsedQuantity);
+            if (imageUrl !== "") sheet.getRange(i + 1, 7).setValue(imageUrl);
+          return { success: true, message: "🎉 เพิ่มจำนวนพัสดุสำเร็จ (อัปเดตสต็อก)" };
+        }
       }
       const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${targetId}`;
       sheet.appendRow([targetId, name.trim(), itemType.trim(), parsedQuantity, loc.trim(), stat.trim(), imageUrl, qrUrl]);
@@ -916,6 +930,8 @@ function saveItemData(mode, id, name, loc, stat, itemType, quantity, itemPicBase
           sheet.getRange(i + 1, 5).setValue(loc.trim());
           sheet.getRange(i + 1, 6).setValue(stat.trim());
           if (imageUrl !== "") sheet.getRange(i + 1, 7).setValue(imageUrl);
+          // หากมีคอลัมน์ totalQty ให้ตั้งค่าเป็น parsedQuantity หากผู้ใช้แก้ไขจำนวนทั้งหมดโดยตรง
+          try { sheet.getRange(i + 1, 9).setValue(parsedQuantity); } catch(e) { /* ignore if col missing */ }
           return { success: true, message: "🔒 อัปเดตข้อมูลพัสดุสำเร็จ!" };
         }
       }
