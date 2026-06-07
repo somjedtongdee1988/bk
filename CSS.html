@@ -61,6 +61,21 @@
   .filter-btn{ color:#475569 }
   .filter-btn.bg-slate-900{ background-color:#0f172a!important; color:#fbbf24!important }
 
+  /* History table styling */
+  .history-table thead th { background: linear-gradient(90deg,#f8fafc,#f1f5f9); color:#334155; border-bottom:1px solid #e6eef8; }
+  .history-table tbody tr { transition: background .12s ease, transform .08s ease; }
+  .history-table tbody tr:hover { background:#fbfbfd; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(15,23,42,0.04); }
+  .history-table td { padding: .85rem .75rem; vertical-align: middle; }
+  .history-table .col-id { width:110px; font-family: monospace; color:#0f172a; }
+  .history-table .col-name { text-align:left; max-width: 420px; overflow-wrap:anywhere; }
+  .history-table .col-qty { width:110px; text-align:center; font-weight:700; }
+  .history-table .col-user { width:220px; }
+  .history-table .status-badge { display:inline-flex; align-items:center; gap:.5rem; padding:.35rem .7rem; border-radius:999px; font-weight:700; font-size:.75rem; }
+  .status-badge.pending { background:#fff7ed; color:#a16207; border:1px solid #fde3b7; }
+  .status-badge.borrowing { background:#fff1f2; color:#9f1239; border:1px solid #f7c6cf; }
+  .status-badge.returned { background:#ecfdf5; color:#065f46; border:1px solid #c6f6d9; }
+  .status-badge.rejected { background:#fff1f2; color:#7f1d1d; border:1px solid #fcd3d6; }
+
 </style>
 /* Mobile-first forced view for USER role */
 <style>
