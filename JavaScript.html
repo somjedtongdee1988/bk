@@ -290,6 +290,34 @@
         if(adminMenu) adminMenu.classList.add("hidden"); 
         if(userMenu) userMenu.classList.remove("hidden");
         if(floatingCartBtn) floatingCartBtn.classList.remove("hidden");
+        // Ensure mobile-friendly top tabs are present for USERs when sidebar is hidden
+        try {
+          if (typeof CURRENT_USER_ROLE !== 'undefined' && CURRENT_USER_ROLE === 'USER') {
+            const mainEl = document.querySelector('main');
+            if (mainEl) {
+              let mobileTabs = document.getElementById('mobile-top-tabs');
+              if (!mobileTabs) {
+                mobileTabs = document.createElement('div');
+                mobileTabs.id = 'mobile-top-tabs';
+                mobileTabs.className = 'mb-4 flex gap-2';
+                const b1 = document.createElement('button');
+                b1.className = 'px-3 py-2 rounded-md bg-amber-500 text-slate-900 font-bold';
+                b1.innerText = '🔄 งานยืม-คืน พัสดุ';
+                b1.onclick = (e) => switchTab('borrow-tab', e);
+                const b2 = document.createElement('button');
+                b2.className = 'px-3 py-2 rounded-md bg-slate-100 text-slate-700 font-bold';
+                b2.innerText = '📦 พัสดุครุภัณฑ์ทั้งหมด';
+                b2.onclick = (e) => switchTab('items-tab', e);
+                mobileTabs.appendChild(b1);
+                mobileTabs.appendChild(b2);
+                mainEl.insertBefore(mobileTabs, mainEl.firstChild);
+              } else {
+                mobileTabs.classList.remove('hidden');
+              }
+            }
+          }
+        } catch(e) { console.warn('mobile-top-tabs init failed', e); }
+
         loadUserHistoryData();
       }
     } else { 
