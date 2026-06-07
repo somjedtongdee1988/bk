@@ -470,7 +470,8 @@ function _renderHistoryRows(tbody, adminApprovalTbody, rows, activeRole) {
 
   if (adminApprovalTbody && adminApprovalTbody.innerHTML === "" && (activeRole === "ADMIN" || activeRole === "SUPER_ADMIN")) {
     adminApprovalTbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-400">🎉 ไม่มีคำขอยืมที่รออนุมัติในขณะนี้</td></tr>`;
-  }}
+  }
+}
 
 // แสดง 5 รายการล่าสุดเป็นค่าเริ่มต้น และเตรียมปุ่ม "ดูเพิ่มเติมทั้งหมด"
 function loadUserHistoryData() {
