@@ -241,6 +241,20 @@ function _findTransactionById(transId) {
 }
 
 /**
+ * Server-side guard: ensure caller is ADMIN or SUPER_ADMIN.
+ * In this simple app we expect client to pass CURRENT_USER_ROLE via google.script.run as needed.
+ * If you call these functions from client, pass an extra param 'callerRole' where appropriate.
+ */
+function __requireAdmin(callerRole) {
+  try {
+    if (!callerRole) return { success: false, message: 'ต้องระบุสิทธิ์การเข้าถึง' };
+    const r = String(callerRole).trim().toUpperCase();
+    if (r === 'ADMIN' || r === 'SUPER_ADMIN') return { success: true };
+    return { success: false, message: 'คุณไม่มีสิทธิ์การเข้าถึงฟังก์ชันนี้' };
+  } catch (e) { return { success: false, message: 'สิทธิ์ไม่ถูกต้อง' }; }
+}
+
+/**
  * หา username จากชีต Users โดยรับ identifier ที่อาจเป็น username / fullName / email
  */
 function findUsernameByIdentifier(identifier) {
@@ -887,7 +901,10 @@ function getExecutiveReportData(filterType) {
   }
 }
 
-function saveItemData(mode, id, name, loc, stat, itemType, quantity, itemPicBase64) {
+function saveItemData(mode, id, name, loc, stat, itemType, quantity, itemPicBase64, callerRole) {
+  // callerRole: expected 'ADMIN' or 'SUPER_ADMIN' to allow modification
+  const guard = __requireAdmin(callerRole);
+  if (!guard.success) return guard;
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName("Items");
@@ -940,7 +957,9 @@ function saveItemData(mode, id, name, loc, stat, itemType, quantity, itemPicBase
   } catch (e) { return { success: false, message: "เกิดข้อผิดพลาด: " + e.toString() }; }
 }
 
-function deleteItemData(id) {
+function deleteItemData(id, callerRole) {
+  const guard = __requireAdmin(callerRole);
+  if (!guard.success) return guard;
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName("Items");
@@ -956,7 +975,9 @@ function deleteItemData(id) {
   } catch (e) { return { success: false, message: "เกิดข้อผิดพลาด: " + e.toString() }; }
 }
 
-function saveUserData(mode, user, role, pass) {
+function saveUserData(mode, user, role, pass, callerRole) {
+  const guard = __requireAdmin(callerRole);
+  if (!guard.success) return guard;
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName("Users");
@@ -985,7 +1006,9 @@ function saveUserData(mode, user, role, pass) {
   } catch (e) { return { success: false, message: "เกิดข้อผิดพลาด: " + e.toString() }; }
 }
 
-function deleteUserData(username) {
+function deleteUserData(username, callerRole) {
+  const guard = __requireAdmin(callerRole);
+  if (!guard.success) return guard;
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName("Users");
@@ -1154,7 +1177,9 @@ function findUserEmailByIdentifier(identifier) {
 
 
 /* แทนที่ส่วนหา/ส่งอีเมลใน approveSingleBorrowRequest ด้วยโค้ดนี้ */
-function approveSingleBorrowRequest(transId, itemId) {
+function approveSingleBorrowRequest(transId, itemId, callerRole) {
+  const guard = __requireAdmin(callerRole);
+  if (!guard.success) return guard;
   try {
     var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const transSheet = ss.getSheetByName("Transactions");
@@ -1211,7 +1236,9 @@ function approveSingleBorrowRequest(transId, itemId) {
 
 
 /* แทนที่ส่วนหา/ส่งอีเมลใน rejectSingleBorrowRequest ด้วยโค้ดนี้ */
-function rejectSingleBorrowRequest(transId, itemId, reason) {
+function rejectSingleBorrowRequest(transId, itemId, reason, callerRole) {
+  const guard = __requireAdmin(callerRole);
+  if (!guard.success) return guard;
   try {
     var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const transSheet = ss.getSheetByName("Transactions");
@@ -1248,7 +1275,9 @@ function rejectSingleBorrowRequest(transId, itemId, reason) {
 }
 
 
-function returnSingleItem(transId, itemId, qty) {
+function returnSingleItem(transId, itemId, qty, callerRole) {
+  const guard = __requireAdmin(callerRole);
+  if (!guard.success) return guard;
   try {
     var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const itemSheet = ss.getSheetByName("Items");

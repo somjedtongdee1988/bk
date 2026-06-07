@@ -625,7 +625,7 @@ function loadUserHistoryData() {
                loadDashboard();
                evaluateDisplayState();
             } else { Swal.fire({ icon: 'error', title: 'ล้มเหลว', text: res.message }); }
-         }).approveSingleBorrowRequest(transId, itemId);
+         }).approveSingleBorrowRequest(transId, itemId, CURRENT_USER_ROLE);
       }
     });
   }
@@ -656,7 +656,7 @@ function loadUserHistoryData() {
                loadDashboard();
                evaluateDisplayState();
             } else { Swal.fire({ icon: 'error', title: 'ผิดพลาด', text: res.message }); }
-         }).rejectSingleBorrowRequest(transId, itemId, result.value);
+         }).rejectSingleBorrowRequest(transId, itemId, result.value, CURRENT_USER_ROLE);
       }
     });
   }
@@ -707,7 +707,7 @@ function loadUserHistoryData() {
                 showToast(res.message, "success");
                 loadDashboard(); evaluateDisplayState();
               } else { showToast(res.message, "error"); }
-            }).returnSingleItem(row.transId, row.itemId, row.qty);
+            }).returnSingleItem(row.transId, row.itemId, row.qty, CURRENT_USER_ROLE);
           };
         }
       };
@@ -950,12 +950,12 @@ function loadDashboard() {
         const modal = document.getElementById("item-modal");
         if(modal) modal.classList.remove("hidden");
       } 
-    }).saveItemData(mode, id, name, loc, stat, type, qty, tempItemBase64Str); 
+  }).saveItemData(mode, id, name, loc, stat, type, qty, tempItemBase64Str, CURRENT_USER_ROLE); 
   }
   
   function deleteItemAction(id) { if(confirm(`คุณต้องการลบรหัสพัสดุ ${id} ใช่หรือไม่?`)) {
   google.script.run.withSuccessHandler(function(res) { if(res.success) { showToast(res.message, "success");
-  loadDashboard(); } else { showToast(res.message, "error"); } }).deleteItemData(id); } }
+  loadDashboard(); } else { showToast(res.message, "error"); } }).deleteItemData(id, CURRENT_USER_ROLE); } }
   
   function closeModal(modalId) {
   const modal = document.getElementById(modalId);
@@ -1270,7 +1270,7 @@ function submitUserForm(event) {
       }
       showToast("เกิดข้อผิดพลาด : " + err.message, "error");
     })
-    .saveUserData(mode, username, role, password);
+  .saveUserData(mode, username, role, password, CURRENT_USER_ROLE);
 }
 
 function deleteUserAction(username) {
@@ -1289,7 +1289,7 @@ function deleteUserAction(username) {
     .withFailureHandler(function(err) {
       showToast("เกิดข้อผิดพลาด : " + err.message, "error");
     })
-    .deleteUserData(username);
+  .deleteUserData(username, CURRENT_USER_ROLE);
 }
 setTimeout(() => {
   document.addEventListener("visibilitychange", function () {
