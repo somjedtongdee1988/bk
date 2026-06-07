@@ -402,41 +402,81 @@
 /* เพิ่ม helper สำหรับเรนเดอร์รายการประวัติ (reuse) */
 function _renderHistoryRows(tbody, adminApprovalTbody, rows, activeRole) {
   if(!tbody) return;
+  // เคลียร์ทั้งตารางหลักและตารางอนุมัติก่อนเริ่มเรนเดอร์ (ป้องกันซ้ำ)
   tbody.innerHTML = "";
   if (adminApprovalTbody) adminApprovalTbody.innerHTML = "";
 
   let approvalCountForBadge = 0;
   rows.forEach(function(row) {
     let badge = "";
-    if (row.status === "รออนุมัติ") {
+      if (row.status === "รออนุมัติ") {
       approvalCountForBadge++;
-      badge = `<span class="px-3 py-1 bg-amber-50 text-amber-800 rounded-full text-xs font-bold border border-amber-200">รออนุมัติ</span>`;
+      badge = `<span class="status-pill inline-flex items-center gap-1.5 bg-amber-50 text-amber-800 text-xs font-bold px-3 py-1 rounded-full border border-amber-200">
+                 <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> ⏳ รออนุมัติจากเจ้าหน้าที่
+               </span>`;
     } else if (row.status === "กำลังยืม") {
-      badge = `<span class="px-3 py-1 bg-rose-50 text-rose-700 rounded-full text-xs font-bold border border-rose-100">กำลังยืม</span>`;
-    } else if (row.status === "คืนแล้ว") {
-      badge = `<span class="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold border border-emerald-100">คืนแล้ว</span>`;
+      badge = `<span class="status-pill inline-flex items-center gap-1.5 bg-rose-50 text-rose-700 text-xs font-bold px-3 py-1 rounded-full border border-rose-100">
+                 <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span> ค้างคืนอุปกรณ์
+               </span>`;
+    } else if (row.status === "ไม่อนุมัติ") {
+      badge = `<span class="status-pill inline-flex items-center gap-1.5 bg-red-50 text-red-700 text-xs font-bold px-3 py-1 rounded-full border border-red-200">
+                 <span class="w-2 h-2 rounded-full bg-red-500"></span> ❌ ปฏิเสธคำขอยืม
+               </span>`;
     } else {
-      badge = `<span class="px-3 py-1 bg-gray-50 text-gray-600 rounded-full text-xs font-bold border">${row.status}</span>`;
+      badge = `<span class="status-pill inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 text-xs font-bold px-3 py-1 rounded-full border border-emerald-100">
+                 <span class="w-2 h-2 rounded-full bg-emerald-500"></span> ส่งคืนคลังแล้ว
+               </span>`;
     }
 
     let returnDateDisplay = (row.status === "กำลังยืม" || row.status === "รออนุมัติ" || row.status === "ไม่อนุมัติ") ? "-" : (row.returnDate || "-");
 
-    let rowHtml = `
-    <tr onclick="openTxDetailsModal(${JSON.stringify(row).replace(/"/g, '&quot;')})">
-      <td class="col-id text-center">${row.itemId}</td>
-      <td class="col-name">${row.itemName}</td>
-      <td class="text-center">${row.qty}</td>
-      <td class="col-user">
-        <div class="font-bold">${row.borrowerName || '-'}</div>
-        <div class="text-xs text-slate-400">${row.borrowerEmail || '-'}</div>
+  const forceMobile = (document.body && document.body.classList && document.body.classList.contains('force-mobile-view'));
+  // If this is the main user history tbody we prefer table rows even on mobile
+  const preferTable = (tbody.id === 'user-history-tbody');
+  if (forceMobile && !preferTable) {
+      // Render compact, readable card for mobile users
+      const safeRow = JSON.stringify(row).replace(/"/g, '&quot;');
+      const cardHtml = `
+        <tr class="bg-white rounded-xl mb-3 border border-slate-100 p-3">
+          <td onclick="openTxDetailsModal(${safeRow})" class="p-3 cursor-pointer">
+            <div class="flex justify-between items-start">
+              <div>
+                <div class="text-xxs text-slate-400">รหัสพัสดุ</div>
+                <div class="font-mono font-bold text-slate-900">${row.itemId}</div>
+              </div>
+              <div class="text-right whitespace-nowrap">${badge}</div>
+            </div>
+            <div class="mt-2">
+              <div class="text-sm font-semibold text-slate-700">${row.itemName}</div>
+              <div class="mt-2 grid grid-cols-2 gap-2 text-xxs text-slate-600">
+                <div><span class="text-xxs text-slate-400">ผู้ยืม</span><div class="font-semibold">${row.borrowerName}</div></div>
+                <div><span class="text-xxs text-slate-400">อีเมล</span><div class="font-mono">${row.borrowerEmail}</div></div>
+                <div><span class="text-xxs text-slate-400">จำนวน</span><div class="font-bold">${row.qty} ชิ้น</div></div>
+                <div><span class="text-xxs text-slate-400">วันที่ยืม</span><div>${row.borrowDate}</div></div>
+              </div>
+              <div class="mt-2 text-xxs text-slate-600">กำหนดคืน: ${row.dueDate}</div>
+              <div class="mt-1 text-xxs text-slate-500">วันที่คืนจริง: <strong class="font-mono">${returnDateDisplay}</strong></div>
+              <div class="mt-2 text-xxs text-slate-500"><strong>วัตถุประสงค์:</strong> ${row.purpose || '-'}</div>
+            </div>
+          </td>
+        </tr>`;
+      tbody.innerHTML += cardHtml;
+    } else {
+      let rowHtml = `<tr onclick="openTxDetailsModal(${JSON.stringify(row).replace(/"/g, '&quot;')})" class="hover:bg-slate-50 transition border-b border-slate-100 bg-white cursor-pointer">
+      <td class="p-3.5 text-center font-mono font-bold text-slate-900">${row.itemId}</td>
+      <td class="p-3.5 font-medium text-slate-700">${row.itemName}</td>
+      <td class="p-3.5 text-center font-bold text-slate-800">${row.qty} ชิ้น</td>
+      <td class="p-3.5 text-slate-600">
+        <div class="text-xs">${row.borrowerName}</div>
+        <div class="text-xxs text-slate-400 font-mono">${row.borrowerEmail}</div>
       </td>
-      <td>${row.borrowDate}</td>
-      <td>${row.dueDate}</td>
-      <td class="font-mono text-slate-600">${returnDateDisplay}</td>
-      <td class="text-center">${badge}</td>
+      <td class="p-3.5 text-slate-600 font-medium">${row.borrowDate}</td>
+      <td class="p-3.5 text-slate-600 font-medium">${row.dueDate}</td>
+      <td class="p-3.5 text-slate-600 font-medium font-mono">${returnDateDisplay}</td>
+      <td class="p-3.5 text-center">${badge}</td>
     </tr>`;
-    tbody.innerHTML += rowHtml;
-    
+      tbody.innerHTML += rowHtml;
+    }
 
     if(adminApprovalTbody && row.status === "รออนุมัติ" && (activeRole === "ADMIN" || activeRole === "SUPER_ADMIN")) {
        adminApprovalTbody.innerHTML += `
