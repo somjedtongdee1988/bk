@@ -1,110 +1,56 @@
 <style>
+  /* Clean stylesheet for app layout. Rules:
+     - Table cells are single-line (no-wrap) by default to prevent row height changes.
+     - The 3rd column (product name) is allowed to wrap.
+     - Responsive adjustments: on small screens allow wrapping for readability. */
   @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap');
-  
-  body {
-    font-family: 'Sarabun', sans-serif;
-    background-color: #f8fafc !important;
-  }
-  
-  /* สไตล์แถบเมนูด้านซ้ายมือแบบกะทัดรัด (Modern Sidebar Styling) */
-  .sidebar-btn, .user-sidebar-btn {
-    color: #94a3b8;
-    background-color: transparent;
-    border-left: 4px solid transparent;
+
+  :root{ --page-bg:#f8fafc; --muted:#94a3b8; --heading:#0f172a; --accent:#f59e0b }
+  html,body{height:100%}
+  body{
+    font-family:'Sarabun',sans-serif;
+    background-color:var(--page-bg)!important;
+    font-size:14px;color:var(--heading);
+    -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
   }
 
-  .sidebar-btn:hover, .user-sidebar-btn:hover {
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap');
+  /* Sidebar compact */
+  .sidebar-btn, .user-sidebar-btn{ color:var(--muted); background:transparent; border-left:4px solid transparent; padding:.6rem .9rem; font-size:.92rem }
+  .sidebar-btn:hover, .user-sidebar-btn:hover{ background:rgba(255,255,255,0.04); color:#fff }
+  .sidebar-btn.active, .user-sidebar-btn.active{ background:var(--accent)!important; color:var(--heading)!important; border-left-color:#fbbf24!important }
 
-      :root {
-        --page-bg: #f8fafc;
-        --muted: #94a3b8;
-        --heading: #0f172a;
-        --accent: #f59e0b;
-      }
+  input,select,textarea{ outline:none; border:1px solid #cbd5e1!important; font-size:.95rem; padding:.55rem .6rem }
+  input:focus,select:focus,textarea:focus{ border-color:var(--heading)!important; box-shadow:0 0 0 3px rgba(15,23,42,.06)!important }
 
-      html, body { height: 100%; }
+  th{ font-size:.9rem!important; letter-spacing:.02em; color:#475569!important; font-weight:700!important; background-color:var(--page-bg)!important; padding:10px 12px!important; text-align:center }
+  td{ vertical-align:middle!important; font-size:.95rem; padding:10px 12px!important }
 
-      body {
-        font-family: 'Sarabun', sans-serif;
-        background-color: var(--page-bg) !important;
-        font-size: 14px;
-        color: var(--heading);
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
-      }
+  /* Card / modal sizing */
+  #user-items-grid-container > div, .bg-white.rounded-xl.shadow-sm.border{ padding:1rem!important }
+  .img-thumbnail{ max-height:160px; object-fit:cover }
+  .fixed.inset-0 .rounded-2xl, .fixed.inset-0 .rounded-xl{ max-width:720px }
 
-      /* Sidebar compact styling */
-      .sidebar-btn, .user-sidebar-btn {
-        color: var(--muted);
-        background-color: transparent;
-        border-left: 4px solid transparent;
-        padding: 0.6rem 0.9rem;
-        font-size: 0.92rem;
-      }
+  .text-xxs{ font-size:.72rem!important } .text-xs{ font-size:.82rem!important }
 
-      .sidebar-btn:hover, .user-sidebar-btn:hover { background-color: rgba(255,255,255,0.04); color: #fff; }
-      .sidebar-btn.active, .user-sidebar-btn.active { background-color: var(--accent) !important; color: var(--heading) !important; border-left-color: #fbbf24 !important; }
+  .animate-fadeIn{ animation:slideUpFade .22s ease-out forwards }
+  @keyframes slideUpFade{ from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
 
-      input, select, textarea { outline:none; border:1px solid #cbd5e1 !important; font-size:0.95rem; padding:0.55rem 0.6rem; }
-      input:focus, select:focus, textarea:focus { border-color:var(--heading) !important; box-shadow:0 0 0 3px rgba(15,23,42,0.06) !important; }
+  /* Default: table cells should not wrap (single-line). Use ellipsis to keep layout tidy. */
+  table.w-full th, table.w-full td{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px }
 
-      th { font-size:0.9rem !important; letter-spacing:0.02em; color:#475569 !important; font-weight:700 !important; background-color:var(--page-bg) !important; padding:10px 12px !important; text-align:center; }
-      td { vertical-align:middle !important; font-size:0.95rem; padding:10px 12px !important; }
+  /* Exception: product name column (3rd) may wrap if it exceeds width */
+  table.w-full th:nth-child(3), table.w-full td:nth-child(3){ white-space:normal; overflow-wrap:anywhere; word-break:break-word; max-width:420px }
 
-      /* Card and modal sizing adjustments */
-      #user-items-grid-container > div, .bg-white.rounded-xl.shadow-sm.border { padding:1rem !important; }
-      .img-thumbnail { max-height:160px; object-fit:cover; }
-      .fixed.inset-0 .rounded-2xl, .fixed.inset-0 .rounded-xl { max-width:720px; }
+  /* Responsive: allow wrapping on small screens for readability */
+  @media (max-width:640px){
+    th,td{ font-size:.78rem!important; padding:8px 6px!important }
+    .img-thumbnail{ max-height:110px }
+    #user-items-grid-container{ grid-template-columns:repeat(1,minmax(0,1fr)) }
+    .fixed.inset-0 .rounded-2xl, .fixed.inset-0 .rounded-xl{ max-width:94% }
+    table.w-full th, table.w-full td{ white-space:normal; max-width:none }
+  }
 
-      .text-xxs { font-size:0.72rem !important; }
-      .text-xs { font-size:0.82rem !important; }
+  .filter-btn{ color:#475569 }
+  .filter-btn.bg-slate-900{ background-color:#0f172a!important; color:#fbbf24!important }
 
-      .animate-fadeIn { animation: slideUpFade 0.22s ease-out forwards; }
-      @keyframes slideUpFade { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
-
-      @media (max-width: 640px) {
-        th, td { font-size:0.78rem !important; padding:8px 6px !important; }
-        .img-thumbnail { max-height:110px; }
-        #user-items-grid-container { grid-template-columns: repeat(1, minmax(0,1fr)); }
-        .fixed.inset-0 .rounded-2xl, .fixed.inset-0 .rounded-xl { max-width:94%; }
-      }
-
-      /* Prevent long text overflow: truncate in cards and table cells on desktop, allow wrap on small screens */
-      .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
-
-      /* Card titles in user items grid */
-      #user-items-grid-container h4.text-sm.font-bold {
-        max-width: 100%;
-        display: block;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        overflow-wrap: anywhere;
-        word-break: break-word;
-      }
-
-      /* Table cells: limit width and truncate long text to keep layout tidy on desktop */
-      table.w-full th, table.w-full td {
-        max-width: 180px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        overflow-wrap: anywhere;
-        word-break: break-word;
-      }
-
-      /* Allow certain columns to be wider if needed (name column) */
-      table.w-full td:nth-child(3), table.w-full th:nth-child(3) { max-width: 360px; }
-
-      /* Responsive override: on small screens allow wrapping for readability */
-      @media (max-width: 640px) {
-        table.w-full th, table.w-full td { max-width: none; white-space: normal; }
-        #user-items-grid-container h4.text-sm.font-bold { white-space: normal; }
-      }
-
-      .filter-btn { color: #475569; }
-      .filter-btn.bg-slate-900 { background-color:#0f172a !important; color:#fbbf24 !important; }
-
-    </style>
+</style>
