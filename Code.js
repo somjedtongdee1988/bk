@@ -417,12 +417,35 @@ function createTransaction(username, itemCode, itemName) {
     var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     var sheet = ss.getSheetByName("Transactions");
     
-    // โค้ดส่วนบันทึกข้อมูลลงชีตของคุณเดิม...
-    // เช่น sheet.appendRow([new Date(), username, itemCode, itemName, "รออนุมัติ"]);
-    
-    // [เพิ่มระบบอีเมล] ส่งแจ้งเตือนหา Admin ทันทีที่มีคำขอใหม่
+    // บันทึกธุรกรรมลงชีต Transactions แบบสั้น (ไม่เปลี่ยนโครงสร้างชีตอื่นๆ)
+    // ตรงนี้จะสร้าง transId และเติมค่าเบื้องต้นให้สอดคล้องกับฟังก์ชันอื่นๆ
+    var now = new Date();
+    var transId = 'TX-' + now.getTime();
+
+    // พยายามหา email/username ที่เกี่ยวข้อง (ถ้ามี)
+    var resolvedEmail = getUserEmail(username) || '';
+    var resolvedUsername = findUsernameByIdentifier(username) || username || '';
+
+    // โครงสร้างแถวที่บันทึก (สอดคล้องกับการใช้งานส่วนอื่นของระบบ):
+    // [transId, itemID, borrowerName, borrowerUsername, borrowDate, dueDate, returnDate, status, purpose, borrowQty, borrowerEmail]
+    var row = [transId, itemCode, username || '', resolvedUsername || '', now, '', '', 'รออนุมัติ', itemName || '', 1, resolvedEmail || ''];
+    try {
+      if (!sheet) sheet = ss.insertSheet('Transactions');
+      sheet.appendRow(row);
+    } catch (e) {
+      // ถ้า appendRow ล้มเหลว ให้ลองใช้ setValues แบบเป็นกลุ่ม
+      try {
+        var last = Math.max(1, sheet.getLastRow());
+        sheet.getRange(last + 1, 1, 1, row.length).setValues([row]);
+      } catch (e2) {
+        // บันทึกไม่สำเร็จ แต่ยังคงพยายามส่งแจ้งเตือนไปยังแอดมินเพื่อให้ทราบ
+        Logger.log('createTransaction: failed to write row: ' + e2.toString());
+      }
+    }
+
+    // ส่งแจ้งเตือนไปยังผู้ดูแลระบบเหมือนเดิม
     sendNotificationToAdmin({username: username, itemCode: itemCode, itemName: itemName});
-    
+
     return { success: true, message: "ส่งคำขอยืมสำเร็จและแจ้งเตือนผู้ดูแลระบบแล้ว" };
   } catch(e) {
     return { success: false, message: e.toString() };
