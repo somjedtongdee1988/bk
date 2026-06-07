@@ -1,95 +1,22 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
-  :root { 
-    --page-bg: #f8fafc; 
-    --muted: #94a3b8; 
-    --heading: #0f172a; 
-    --accent: #f59e0b;
-    --primary: #0f172a;
+  
+  /* กำหนด Font และขนาดให้เหมาะสมกับการอ่านบนมือถือ */
+  .user-table-wrapper {
+    font-family: 'Sarabun', sans-serif;
+    font-size: 12px; 
   }
 
-  body { 
-    font-family: 'Sarabun', sans-serif; 
-    background-color: var(--page-bg) !important; 
-    font-size: 14px; 
-    color: var(--heading); 
-  }
+  .user-history-table { width: 100%; border-collapse: collapse; }
+  .user-history-table th { background: #f8fafc; color: #475569; padding: 10px; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; font-size: 0.65rem; }
+  .user-history-table td { padding: 10px; border-bottom: 1px solid #f1f5f9; color: #1e293b; }
 
-  /* คอนเทนเนอร์หลักของตาราง */
-  .history-table-wrapper { 
-    width: 100%; 
-    overflow-x: auto; 
-    background: #ffffff; 
-    border-radius: 12px; 
-    border: 1px solid #e2e8f0; 
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05); 
-  }
-
-  /* สไตล์ตารางหลัก */
-  .history-table { 
-    width: 100%; 
-    border-collapse: collapse; 
-    min-width: 850px; 
-  }
-
-  .history-table thead th { 
-    background: #f8fafc; 
-    color: #475569; 
-    font-size: 0.7rem; 
-    padding: 16px; 
-    text-transform: uppercase; 
-    border-bottom: 2px solid #e2e8f0; 
-    text-align: left; 
-    letter-spacing: 0.05em;
-  }
-
-  .history-table tbody tr { 
-    transition: all 0.2s ease; 
-    border-bottom: 1px solid #f1f5f9; 
-    cursor: pointer; 
-  }
-
-  .history-table tbody tr:hover { 
-    background-color: #f1f5f9; 
-  }
-
-  .history-table td { 
-    padding: 14px 16px; 
-    vertical-align: middle; 
-    color: #334155; 
-    font-size: 0.85rem; 
-  }
-
-  /* การแสดงผลบนมือถือ (Responsive) */
+  /* Mobile-first: ปรับตาราง USER ให้เป็น Card */
   @media (max-width: 768px) {
-    .history-table-wrapper { border: none; box-shadow: none; background: transparent; }
-    .history-table, .history-table thead, .history-table tbody, .history-table tr, .history-table td { display: block; width: 100%; }
-    .history-table thead { display: none; }
-    .history-table tr { 
-      background: #fff; 
-      margin-bottom: 12px; 
-      border-radius: 12px; 
-      border: 1px solid #e2e8f0; 
-      padding: 12px; 
-      box-shadow: 0 2px 4px rgba(0,0,0,0.05); 
-    }
-    .history-table td { 
-      border: none !important; 
-      padding: 6px 4px !important; 
-      display: flex; 
-      justify-content: space-between; 
-      align-items: center; 
-    }
-    .history-table td::before { 
-      content: attr(data-label); 
-      font-weight: 700; 
-      color: #64748b; 
-      font-size: 0.65rem; 
-      text-transform: uppercase; 
-    }
+    .user-history-table thead { display: none; }
+    .user-history-table, .user-history-table tbody, .user-history-table tr, .user-history-table td { display: block; width: 100%; }
+    .user-history-table tr { background: #fff; margin-bottom: 10px; border-radius: 8px; border: 1px solid #e2e8f0; padding: 8px; }
+    .user-history-table td { display: flex; justify-content: space-between; align-items: center; border: none !important; padding: 4px 0; }
+    .user-history-table td::before { content: attr(data-label); font-weight: 700; color: #64748b; }
   }
-
-  /* ปรับสไตล์สำหรับ UI ส่วนอื่นๆ */
-  .status-pill { display: inline-flex; align-items: center; justify-content: center; }
-  .sidebar-btn.active { background: var(--accent) !important; color: var(--heading) !important; }
 </style>
