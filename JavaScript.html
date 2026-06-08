@@ -837,29 +837,29 @@ function loadDashboard() {
       `<div class="w-full h-28 bg-slate-100 rounded-lg mb-2 flex items-center justify-center text-slate-400 text-[10px] border border-dashed">No Image</div>`;
     
     let actionBtn = isAvailable 
-      ? `<button onclick="addItemToCart('${item.id}')" class="bg-slate-900 hover:bg-amber-500 text-amber-400 hover:text-slate-950 font-bold text-[11px] px-3 py-1.5 rounded-lg border border-slate-800 transition shadow flex items-center gap-1">🛒 เพิ่มลงตะกร้า</button>`
-      : `<button disabled class="bg-slate-100 text-slate-400 text-[11px] px-3 py-1.5 rounded-lg border cursor-not-allowed">ไม่พร้อมใช้งาน</button>`;
-      
-    container.innerHTML += `
-      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col justify-between hover:shadow transition duration-200 animate-fadeIn w-full">
-        <div>
-          <div class="flex justify-between items-start gap-1 mb-2">
-            <span class="font-mono font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded text-[10px] tracking-wider">${item.id}</span>
-            <div class="whitespace-nowrap">${statusBadge}</div>
-          </div>
-          ${imgHtml}
-          <h4 class="text-xs font-bold text-slate-800 leading-tight mb-1 line-clamp-2">${item.name}</h4>
-          <div class="text-[10px] text-slate-400 space-y-0.5">
-            <p>ประเภท: <span class="text-slate-600 font-bold">${item.type || 'ไม่ระบุ'}</span></p>
-            <p>คงเหลือ: <span class="text-slate-600 font-bold">${item.quantity || 0} ชิ้น</span></p>
-            <p class="truncate">📍 ${item.location}</p>
-          </div>
-        </div>
-        <div class="border-t border-slate-100 mt-4 pt-3 flex justify-between items-center">
-            <span class="text-xs text-slate-400 font-medium">สาขาวิศวกรรมคอมพิวเตอร์</span>
-            ${actionBtn}
-          </div>
-      </div>`; 
+  ? `<button onclick="addItemToCart('${item.id}')" class="bg-slate-900 hover:bg-amber-500 text-amber-400 hover:text-slate-950 font-bold text-[11px] px-3 py-2 rounded-lg transition shadow flex items-center justify-center gap-1">🛒 เพิ่มลงตะกร้า</button>`
+  : `<button disabled class="bg-slate-100 text-slate-400 text-[11px] px-3 py-2 rounded-lg border cursor-not-allowed">ไม่พร้อมใช้งาน</button>`;
+
+container.innerHTML += `
+  <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col justify-between hover:shadow transition duration-200 animate-fadeIn w-full">
+    <div>
+      <div class="flex justify-between items-start gap-1 mb-2">
+        <span class="font-mono font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded text-[10px] tracking-wider">${item.id}</span>
+        <div class="whitespace-nowrap">${statusBadge}</div>
+      </div>
+      ${imgHtml}
+      <h4 class="text-xs font-bold text-slate-800 leading-tight mb-1 line-clamp-2">${item.name}</h4>
+      <div class="text-[10px] text-slate-400 space-y-0.5">
+        <p>ประเภท: <span class="text-slate-600 font-bold">${item.type || 'ไม่ระบุ'}</span></p>
+        <p>คงเหลือ: <span class="text-slate-600 font-bold">${item.quantity || 0} ชิ้น</span></p>
+        <p class="truncate">📍 ${item.location}</p>
+      </div>
+    </div>
+    <div class="border-t border-slate-100 mt-4 pt-3 flex justify-between items-center flex-nowrap gap-2">
+        <span class="text-xs text-slate-400 font-medium truncate">สาขาวิศวกรรมคอมพิวเตอร์</span>
+        ${actionBtn}
+    </div>
+  </div>`;
   }); 
 }
   
