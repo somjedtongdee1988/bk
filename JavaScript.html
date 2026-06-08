@@ -343,21 +343,15 @@
   function changeExecutiveFilter(type) { CURRENT_EXECUTIVE_FILTER = type; loadExecutiveReport(); }
 
   function loadExecutiveReport() {
-    document.querySelectorAll(".filter-btn").forEach(btn => { 
-  // ลบสีที่เคยเลือกออก (เปลี่ยนสีข้อความเดิมเป็นสีปกติ เช่น slate-600)
-  btn.classList.remove("bg-slate-900", "text-amber-400"); 
-  btn.classList.add("text-slate-600"); 
-});
-
-// บรรทัดที่เพิ่มสีให้ปุ่มที่กด (ให้ใช้ text-amber-400 หรือ text-yellow-400)
-const activeBtn = document.getElementById("btn-filter-" + CURRENT_EXECUTIVE_FILTER);
-if(activeBtn) {
-  // เพิ่มพื้นหลังสีเทา และข้อความสีเหลือง
-  activeBtn.classList.add("bg-slate-900", "text-amber-400"); 
-  activeBtn.classList.remove("text-slate-600");
-}
-
-
+    document.querySelectorAll(".filter-btn").forEach(btn => {
+    btn.classList.remove("bg-slate-900", "text-amber-400"); 
+      btn.classList.add("text-slate-600");
+    });
+  const activeBtn = document.getElementById("btn-filter-" + CURRENT_EXECUTIVE_FILTER);
+    if(activeBtn) {
+      activeBtn.classList.add("bg-slate-900", "text-amber-400"); 
+      activeBtn.classList.remove("text-slate-600");
+      }
     google.script.run
       .withSuccessHandler(function(res) {
         if (!res.success) return;
@@ -820,42 +814,53 @@ function loadDashboard() {
 }
   
   function renderUserItemsGrid() { 
-    const container = document.getElementById("user-items-grid-container"); 
-    if(!container) return; 
-    if(!ALL_ITEMS_CACHE || ALL_ITEMS_CACHE.length === 0) { 
-      container.innerHTML = `<div class="col-span-full p-8 text-center text-slate-400 bg-white rounded-xl border border-dashed">📦 ไม่พบรายชื่อพัสดุอุปกรณ์คอมพิวเตอร์ในระบบ</div>`; 
-      return; 
-    } 
-    container.innerHTML = ""; 
-    ALL_ITEMS_CACHE.forEach(item => { 
-  let isAvailable = item.quantity > 0 && item.status !== "ชำรุด";
-  let statusBadge = isAvailable ? `<span class="status-pill bg-emerald-50 text-emerald-700 font-bold px-3 py-1 rounded-full border border-emerald-200 text-xs flex items-center gap-1">🟢 พร้อมยืม (${item.quantity})</span>` : `<span class="status-pill bg-rose-50 text-rose-700 font-bold px-3 py-1 rounded-full border border-rose-200 text-xs flex items-center gap-1">🔴 หมด/ถูกยืม</span>`; 
+  const container = document.getElementById("user-items-grid-container"); 
+  if(!container) return; 
+
+  // ปรับ Container ให้เป็น Grid ที่รองรับ Responsive
+  container.className = "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-2";
+
+  if(!ALL_ITEMS_CACHE || ALL_ITEMS_CACHE.length === 0) { 
+    container.innerHTML = `<div class="col-span-full p-8 text-center text-slate-400 bg-white rounded-xl border border-dashed">📦 ไม่พบรายชื่อพัสดุอุปกรณ์คอมพิวเตอร์ในระบบ</div>`; 
+    return; 
+  } 
+  
+  container.innerHTML = ""; 
+  ALL_ITEMS_CACHE.forEach(item => { 
+    let isAvailable = item.quantity > 0 && item.status !== "ชำรุด";
+    let statusBadge = isAvailable ? 
+      `<span class="bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-full border border-emerald-200 text-[10px] flex items-center gap-1">🟢 พร้อมยืม (${item.quantity})</span>` : 
+      `<span class="bg-rose-50 text-rose-700 font-bold px-2 py-0.5 rounded-full border border-rose-200 text-[10px] flex items-center gap-1">🔴 หมด</span>`; 
       
-      let imgHtml = item.itemPic ? `<img src="${item.itemPic}" class="w-full h-32 object-cover rounded-lg mb-3 border shadow-sm" onerror="this.onerror=null; this.src='https://placehold.co/400x200/cbd5e1/0f172a?text=CPE+Asset';">` : `<div class="w-full h-32 bg-slate-100 rounded-lg mb-3 flex items-center justify-center text-slate-400 text-xs border border-dashed">ไม่มีภาพพัสดุ</div>`;
+    let imgHtml = item.itemPic ? 
+      `<img src="${item.itemPic}" class="w-full h-28 object-cover rounded-lg mb-2 border shadow-sm" onerror="this.onerror=null; this.src='https://placehold.co/400x200/cbd5e1/0f172a?text=CPE+Asset';">` : 
+      `<div class="w-full h-28 bg-slate-100 rounded-lg mb-2 flex items-center justify-center text-slate-400 text-[10px] border border-dashed">No Image</div>`;
+    
+    let actionBtn = isAvailable 
+      ? `<button onclick="addItemToCart('${item.id}')" class="bg-slate-900 hover:bg-amber-500 text-amber-400 hover:text-slate-950 font-bold text-[11px] px-3 py-1.5 rounded-lg border border-slate-800 transition shadow flex items-center gap-1">🛒 เพิ่มลงตะกร้า</button>`
+      : `<button disabled class="bg-slate-100 text-slate-400 text-[11px] px-3 py-1.5 rounded-lg border cursor-not-allowed">ไม่พร้อมใช้งาน</button>`;
       
-      let actionBtn = isAvailable 
-        ? `<button onclick="addItemToCart('${item.id}')" class="bg-slate-900 hover:bg-amber-500 text-amber-400 hover:text-slate-950 font-bold text-xs px-3 py-1.5 rounded-lg border border-slate-800 transition shadow flex items-center gap-1">🛒 เพิ่มลงตะกร้า</button>`
-        : `<button disabled class="bg-slate-100 text-slate-400 text-xs px-3 py-1.5 rounded-lg border cursor-not-allowed">พัสดุไม่พร้อม</button>`;
-      container.innerHTML += `
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col justify-between hover:shadow-md transition duration-200 animate-fadeIn">
-          <div>
-            <div class="flex justify-between items-start gap-2 mb-3">
-              <span class="font-mono font-black text-slate-900 bg-slate-100 px-2.5 py-0.5 rounded text-xs tracking-wider">${item.id}</span>
-              <div class="whitespace-nowrap">${statusBadge}</div>
-            </div>
-            ${imgHtml}
-            <h4 class="text-sm font-bold text-slate-800 leading-snug mb-1">${item.name}</h4>
-            <p class="text-xs text-slate-400 mb-1">ประเภท: <span class="font-bold text-slate-600">${item.type || 'ไม่ระบุ'}</span> | จำนวนทั้งหมด: <span class="font-bold text-slate-600">${(item.totalQty !== undefined) ? item.totalQty : item.quantity} ชิ้น</span></p>
-            <p class="text-xs text-slate-400 mb-2">จำนวนคงเหลือ: <span class="font-bold text-slate-600">${item.quantity || 0} ชิ้น</span></p>
-            <p class="text-xs text-slate-500 flex items-center gap-1"><span class="text-slate-400">📍 ห้องจัดเก็บ:</span> ${item.location}</p>
+    container.innerHTML += `
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col justify-between hover:shadow transition duration-200 animate-fadeIn w-full">
+        <div>
+          <div class="flex justify-between items-start gap-1 mb-2">
+            <span class="font-mono font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded text-[10px] tracking-wider">${item.id}</span>
+            <div class="whitespace-nowrap">${statusBadge}</div>
           </div>
-          <div class="border-t border-slate-100 mt-4 pt-3 flex justify-between items-center">
-            <span class="text-xxs text-slate-400 font-medium">สาขาวิศวกรรมคอมพิวเตอร์ มรพส.</span>
-            ${actionBtn}
+          ${imgHtml}
+          <h4 class="text-xs font-bold text-slate-800 leading-tight mb-1 line-clamp-2">${item.name}</h4>
+          <div class="text-[10px] text-slate-400 space-y-0.5">
+            <p>ประเภท: <span class="text-slate-600 font-bold">${item.type || 'ไม่ระบุ'}</span></p>
+            <p>คงเหลือ: <span class="text-slate-600 font-bold">${item.quantity || 0} ชิ้น</span></p>
+            <p class="truncate">📍 ${item.location}</p>
           </div>
-        </div>`; 
-    }); 
-  }
+        </div>
+        <div class="border-t border-slate-100 mt-3 pt-2">
+          ${actionBtn}
+        </div>
+      </div>`; 
+  }); 
+}
   
   function copyItemIdToForm(id) { 
     const inputEl = document.getElementById("borrowItemId"); 
