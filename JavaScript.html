@@ -867,18 +867,18 @@ function loadDashboard() {
       // Always render as table rows (user prefers table view). For mobile the CSS will stack rows visually.
       tbody.innerHTML += `
         <tr class="hover:bg-slate-50 transition border-b border-slate-100 bg-white">
-          <td class="p-2 text-center">${tableImgHtml}</td>
-          <td class="p-3.5 font-mono font-bold text-slate-900 text-left">${item.id}</td>
-          <td class="p-3.5 font-medium text-slate-700 text-left">${item.name}</td>
-          <td class="p-3.5 text-slate-600 text-center"><span class="bg-slate-100 text-slate-800 text-xs px-2.5 py-0.5 rounded-md font-bold">${item.type || 'ครุภัณฑ์'}</span></td>
-          <td class="p-3.5 font-bold text-slate-900 text-center">${(item.totalQty !== undefined) ? item.totalQty : item.quantity}</td>
-          <td class="p-3.5 font-bold text-slate-900 text-center">${item.quantity || 0}</td>
-          <td class="p-3.5 text-slate-500 text-left">${item.location}</td>
-          <td class="p-3.5 text-center">${statusBadge}</td>
-          <td class="p-3.5 text-center">
+          <td class="p-1">${tableImgHtml}</td>
+          <td class="p-2 font-mono font-bold text-slate-900">${item.id}</td>
+          <td class="p-2 font-medium text-slate-700 text-left col-name-wrap">${item.name}</td>
+          <td class="p-2 text-slate-600"><span class="bg-slate-100 px-1.5 rounded">${item.type || 'ครุภัณฑ์'}</span></td>
+          <td class="p-2 font-bold">${(item.totalQty !== undefined) ? item.totalQty : item.quantity}</td>
+          <td class="p-2 font-bold text-slate-900">${item.quantity || 0}</td>
+          <td class="p-2 text-slate-500">${item.location}</td>
+          <td class="p-2">${statusBadge}</td>
+          <td class="p-2">
             ${ isAdmin ? `
-            <button onclick="openItemModal('EDIT', '${item.id}')" class="text-xs bg-slate-100 hover:bg-slate-900 hover:text-amber-400 px-3 py-1 rounded-md transition font-bold mr-1">แก้ไข</button>
-            <button onclick="deleteItemAction('${item.id}')" class="text-xs bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white px-3 py-1 rounded-md transition font-bold border border-rose-100">ลบ</button>
+            <button onclick="openItemModal('EDIT', '${item.id}')" class="text-[10px] bg-slate-800 text-white px-2 py-1 rounded">แก้ไข</button>
+            <button onclick="deleteItemAction('${item.id}')" class="text-[10px] bg-rose-600 text-white px-2 py-1 rounded">ลบ</button>
             ` : '' }
           </td>
         </tr>`;

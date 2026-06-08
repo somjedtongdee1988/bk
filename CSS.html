@@ -93,4 +93,24 @@
   .status-pill { display: inline-flex; align-items: center; justify-content: center; }
   .sidebar-btn.active { background: var(--accent) !important; color: var(--heading) !important; }
   
+  /* สไตล์สำหรับตารางคลังพัสดุ (Inventory Table) */
+.inventory-table {
+  width: 100%;
+  table-layout: fixed; /* บังคับขนาดคอลัมน์ให้คงที่ */
+}
+
+.inventory-table td {
+  white-space: nowrap;      /* บังคับให้เป็นบรรทัดเดียว */
+  overflow: hidden;
+  text-overflow: ellipsis;  /* ถ้าข้อความยาวเกินให้ใส่จุด ... */
+  padding: 8px;
+  font-size: 0.85rem;
+}
+
+/* ยกเว้นคอลัมน์ ชื่อพัสดุ ให้ขึ้นบรรทัดใหม่ได้ */
+.inventory-table td.item-name-col {
+  white-space: normal;      /* อนุญาตให้ตัดบรรทัด */
+  word-wrap: break-word;    /* ตัดคำหากยาวเกินไป */
+  max-width: 300px;         /* กำหนดความกว้างสูงสุด */
+}
 </style>
