@@ -345,7 +345,7 @@
   function loadExecutiveReport() {
     document.querySelectorAll(".filter-btn").forEach(btn => { 
   // ลบสีที่เคยเลือกออก (เปลี่ยนสีข้อความเดิมเป็นสีปกติ เช่น slate-600)
-  btn.classList.remove("bg-slate-500", "text-amber-400"); 
+  btn.classList.remove("bg-slate-900", "text-amber-400"); 
   btn.classList.add("text-slate-600"); 
 });
 
@@ -353,7 +353,7 @@
 const activeBtn = document.getElementById("btn-filter-" + CURRENT_EXECUTIVE_FILTER);
 if(activeBtn) {
   // เพิ่มพื้นหลังสีเทา และข้อความสีเหลือง
-  activeBtn.classList.add("bg-slate-500", "text-amber-400"); 
+  activeBtn.classList.add("bg-slate-900", "text-amber-400"); 
   activeBtn.classList.remove("text-slate-600");
 }
 
