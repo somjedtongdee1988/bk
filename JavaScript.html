@@ -343,9 +343,19 @@
   function changeExecutiveFilter(type) { CURRENT_EXECUTIVE_FILTER = type; loadExecutiveReport(); }
 
   function loadExecutiveReport() {
-    document.querySelectorAll(".filter-btn").forEach(btn => { btn.classList.remove("bg-slate-900", "text-amber-400"); btn.classList.add("text-slate-600"); });
-    const activeBtn = document.getElementById("btn-filter-" + CURRENT_EXECUTIVE_FILTER);
-    if(activeBtn) activeBtn.classList.add("bg-slate-900", "text-amber-400");
+    document.querySelectorAll(".filter-btn").forEach(btn => { 
+  // ลบสีที่เคยเลือกออก (เปลี่ยนสีข้อความเดิมเป็นสีปกติ เช่น slate-600)
+  btn.classList.remove("bg-slate-500", "text-amber-400"); 
+  btn.classList.add("text-slate-600"); 
+});
+
+// บรรทัดที่เพิ่มสีให้ปุ่มที่กด (ให้ใช้ text-amber-400 หรือ text-yellow-400)
+const activeBtn = document.getElementById("btn-filter-" + CURRENT_EXECUTIVE_FILTER);
+if(activeBtn) {
+  // เพิ่มพื้นหลังสีเทา และข้อความสีเหลือง
+  activeBtn.classList.add("bg-slate-500", "text-amber-400"); 
+  activeBtn.classList.remove("text-slate-600");
+}
 
 
     google.script.run
