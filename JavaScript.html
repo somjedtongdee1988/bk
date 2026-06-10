@@ -6,6 +6,12 @@
 
   document.addEventListener("DOMContentLoaded", function() {
     evaluateDisplayState();
+    
+    // เพิ่มคำสั่งนี้เพื่อให้ระบบเปิดแท็บ "งานยืม-คืนพัสดุ" เป็นค่าเริ่มต้นสำหรับ Admin
+    if (document.getElementById("borrow-tab")) {
+      switchTab('borrow-tab', null);
+    }
+
     const bDateEl = document.getElementById("cartBorrowDate");
     if(bDateEl) {
       const today = new Date().toISOString().split('T')[0];
