@@ -6,12 +6,6 @@
 
   document.addEventListener("DOMContentLoaded", function() {
     evaluateDisplayState();
-    
-    // เพิ่มคำสั่งนี้เพื่อให้ระบบเปิดแท็บ "งานยืม-คืนพัสดุ" เป็นค่าเริ่มต้นสำหรับ Admin
-    if (document.getElementById("borrow-tab")) {
-      switchTab('borrow-tab', null);
-    }
-
     const bDateEl = document.getElementById("cartBorrowDate");
     if(bDateEl) {
       const today = new Date().toISOString().split('T')[0];
@@ -274,7 +268,7 @@
       } else if (CURRENT_USER_ROLE === "ADMIN") {
         if(reportTab) reportTab.classList.add("hidden");
         
-        switchTab('approval-tab'); 
+        switchTab('borrow-tab'); 
         
         if(borrowReturnFieldset) borrowReturnFieldset.classList.add("hidden"); 
         if(personalHistoryBox) personalHistoryBox.classList.remove("hidden");
