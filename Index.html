@@ -230,11 +230,11 @@
         class="w-64 bg-slate-900 text-slate-300 border-r border-slate-800 flex flex-col justify-between h-full flex-shrink-0 z-20 transition-all duration-300 absolute lg:static lg:translate-x-0 -translate-x-full shadow-2xl lg:shadow-none">
         <div class="py-4">
           <nav id="admin-nav-menu" class="hidden px-2 space-y-1">
+            <button type="button" onclick="switchTab('borrow-tab', event)" class="sidebar-btn active flex items-center gap-2.5 w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold transition"><span>🔄</span> งานยืม-คืนพัสดุ</button>
             <button type="button" onclick="switchTab('approval-tab', event)" class="sidebar-btn flex items-center justify-between w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold transition">
               <div class="flex items-center gap-2.5"><span>📋</span> อนุมัติการยืมพัสดุ</div>
               <span id="nav-approval-badge" class="bg-rose-600 text-white text-xxs font-black px-2 py-0.5 rounded-full hidden">0</span>
             </button>
-            <button type="button" onclick="switchTab('borrow-tab', event)" class="sidebar-btn active flex items-center gap-2.5 w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold transition"><span>🔄</span> งานยืม-คืนพัสดุ</button>
             <button type="button" onclick="switchTab('user-items-tab', event)" class="sidebar-btn flex items-center gap-2.5 w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold transition"><span>📦</span> พัสดุครุภัณฑ์ทั้งหมด</button>
             <button type="button" id="nav-report-btn" onclick="switchTab('report-tab', event)" class="sidebar-btn flex items-center gap-2.5 w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold transition"><span>📊</span> สรุปรายงานสถิติ</button>
             <button type="button" id="nav-items-btn" onclick="switchTab('items-tab', event)" class="sidebar-btn flex items-center gap-2.5 w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold transition"><span>⚙️</span> จัดการพัสดุในคลัง</button>
