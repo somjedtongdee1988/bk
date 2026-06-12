@@ -1347,55 +1347,110 @@ function _resolveBorrowerEmail(txDataRow) {
   return null;
 }
 
-function checkReturnDueDates() {
-  // 1. ดึงข้อมูลจากชีตประวัติการยืม-คืน (ปรับชื่อชีตให้ตรงกับระบบของคุณ เช่น "Transactions" หรือ "History")
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Transactions"); 
-  var data = sheet.getDataRange().getValues(); // สมมติหัวข้อเริ่มแถว 1 ข้อมูลเริ่มแถว 2
+// function checkReturnDueDates() {
+//   // 1. ดึงข้อมูลจากชีตประวัติการยืม-คืน (ปรับชื่อชีตให้ตรงกับระบบของคุณ เช่น "Transactions" หรือ "History")
+//   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Transactions"); 
+//   var data = sheet.getDataRange().getValues(); // สมมติหัวข้อเริ่มแถว 1 ข้อมูลเริ่มแถว 2
   
-  // ตั้งค่าวันที่ปัจจุบัน (ตัดเวลาออกให้เหลือ 00.00 น.)
+//   // ตั้งค่าวันที่ปัจจุบัน (ตัดเวลาออกให้เหลือ 00.00 น.)
+//   var today = new Date();
+//   today.setHours(0,0,0,0);
+  
+//   // กำหนดวันที่ล่วงหน้า 1 วัน (วันพรุ่งนี้)
+//   var tomorrow = new Date(today);
+//   tomorrow.setDate(today.getDate() + 1);
+
+//   // 2. วนลูปตรวจสอบข้อมูลทีละแถว
+//   for (var i = 1; i < data.length; i++) {
+//     var transId = data[i][0]; // คอลัมน์ A: รหัสธุรกรรม
+//     var itemId = data[i][1];  // คอลัมน์ B: รหัสพัสดุ
+//     var itemName = data[i][2];// คอลัมน์ C: ชื่อผู้ยืม
+//     var email = data[i][10];   // คอลัมน์ K: อีเมลผู้ยืม (ตำแหน่งสมมติ)
+//     var dueDateStr = data[i][5]; // คอลัมน์ F: วันกำหนดส่งคืน (รูปแบบ dd/MM/yyyy)
+//     var status = data[i][7];  // คอลัมน์ H: สถานะ (เช่น "กำลังยืม")
+
+//     // ตรวจสอบเฉพาะรายการที่ยังยืมอยู่
+//     if (status === "กำลังยืม" && dueDateStr) {
+//       // แปลงวันที่ string (dd/MM/yyyy) ให้เป็น Object Date
+//       var parts = dueDateStr.split('/');
+//       var dueDate = new Date(parts[2], parts[1] - 1, parts[0]);
+//       dueDate.setHours(0,0,0,0);
+
+//       // เงื่อนไขที่ 1: ก่อนถึงกำหนด 1 วัน (พรุ่งนี้)
+//       if (dueDate.getTime() === tomorrow.getTime()) {
+//         MailApp.sendEmail(email, "แจ้งเตือน: ใกล้ถึงกำหนดคืนพัสดุ", 
+//                           "เรียนผู้ใช้งาน,\n\nรายการพัสดุ: " + itemName + " (รหัส: " + itemId + 
+//                           ") จะถึงกำหนดส่งคืนในวันพรุ่งนี้ (" + dueDateStr + ") กรุณาเตรียมนำมาคืนครับ");
+//       }
+      
+//       // เงื่อนไขที่ 2: ถึงกำหนดวันที่ส่งคืน (วันนี้)
+//       else if (dueDate.getTime() === today.getTime()) {
+//         MailApp.sendEmail(email, "แจ้งเตือน: ครบกำหนดคืนพัสดุ", 
+//                           "เรียนผู้ใช้งาน,\n\nรายการพัสดุ: " + itemName + " (รหัส: " + itemId + 
+//                           ") ถึงกำหนดส่งคืนในวันนี้ (" + dueDateStr + ") กรุณานำมาคืนที่คลังพัสดุครับ");
+//       }
+      
+//       // เงื่อนไขที่ 3: เกินกำหนดส่งคืน (เลยวันที่กำหนดมาแล้ว)
+//       else if (dueDate < today) {
+//         MailApp.sendEmail(email, "⚠️ แจ้งเตือน: เกินกำหนดคืนพัสดุ", 
+//                           "เรียนผู้ใช้งาน,\n\nรายการพัสดุ: " + itemName + " (รหัส: " + itemId + 
+//                           ") เกินกำหนดส่งคืนแล้ว! (" + dueDateStr + ") กรุณานำมาคืนโดยด่วนครับ");
+//       }
+//     }
+//   }
+// }
+
+function checkReturnDueDatesDebug() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Transactions"); 
+  var data = sheet.getDataRange().getValues(); 
+  
   var today = new Date();
   today.setHours(0,0,0,0);
   
-  // กำหนดวันที่ล่วงหน้า 1 วัน (วันพรุ่งนี้)
   var tomorrow = new Date(today);
   tomorrow.setDate(today.getDate() + 1);
 
-  // 2. วนลูปตรวจสอบข้อมูลทีละแถว
+  Logger.log("จำนวนแถวทั้งหมด: " + data.length);
+
   for (var i = 1; i < data.length; i++) {
-    var transId = data[i][0]; // คอลัมน์ A: รหัสธุรกรรม
-    var itemId = data[i][1];  // คอลัมน์ B: รหัสพัสดุ
-    var itemName = data[i][2];// คอลัมน์ C: ชื่อผู้ยืม
-    var email = data[i][10];   // คอลัมน์ K: อีเมลผู้ยืม (ตำแหน่งสมมติ)
-    var dueDateStr = data[i][5]; // คอลัมน์ F: วันกำหนดส่งคืน (รูปแบบ dd/MM/yyyy)
-    var status = data[i][7];  // คอลัมน์ H: สถานะ (เช่น "กำลังยืม")
+    var transId = data[i][0];
+    var itemId = data[i][1];  
+    var itemName = data[i][2];
+    var email = data[i][10];   
+    var dueDateRaw = data[i][5]; 
+    var status = data[i][7];  
 
-    // ตรวจสอบเฉพาะรายการที่ยังยืมอยู่
-    if (status === "กำลังยืม" && dueDateStr) {
-      // แปลงวันที่ string (dd/MM/yyyy) ให้เป็น Object Date
-      var parts = dueDateStr.split('/');
-      var dueDate = new Date(parts[2], parts[1] - 1, parts[0]);
+    // พิมพ์ค่าออกมาดูใน Log
+    Logger.log("แถว " + (i+1) + " | ID: " + transId + " | Status: " + status + " | DueDate: " + dueDateRaw + " | Email: " + email);
+
+    if (status === "กำลังยืม" && dueDateRaw) {
+      
+      // ตรวจสอบว่าดึงมาเป็น Object Date หรือ String
+      var dueDate;
+      if (typeof dueDateRaw === "object") {
+        dueDate = new Date(dueDateRaw);
+      } else {
+        var parts = dueDateRaw.split('/');
+        dueDate = new Date(parts[2], parts[1] - 1, parts[0]);
+      }
+      
       dueDate.setHours(0,0,0,0);
+      Logger.log("แปลง Date สำเร็จ ได้วันที่: " + dueDate);
 
-      // เงื่อนไขที่ 1: ก่อนถึงกำหนด 1 วัน (พรุ่งนี้)
       if (dueDate.getTime() === tomorrow.getTime()) {
-        MailApp.sendEmail(email, "แจ้งเตือน: ใกล้ถึงกำหนดคืนพัสดุ", 
-                          "เรียนผู้ใช้งาน,\n\nรายการพัสดุ: " + itemName + " (รหัส: " + itemId + 
-                          ") จะถึงกำหนดส่งคืนในวันพรุ่งนี้ (" + dueDateStr + ") กรุณาเตรียมนำมาคืนครับ");
+        Logger.log("👉 เงื่อนไขที่ 1 ทำงาน (ส่งเมล์ไปที่: " + email + ")");
+        MailApp.sendEmail(email, "แจ้งเตือน: ใกล้ถึงกำหนดคืนพัสดุ", "ทดสอบเตือนล่วงหน้า 1 วัน");
       }
-      
-      // เงื่อนไขที่ 2: ถึงกำหนดวันที่ส่งคืน (วันนี้)
       else if (dueDate.getTime() === today.getTime()) {
-        MailApp.sendEmail(email, "แจ้งเตือน: ครบกำหนดคืนพัสดุ", 
-                          "เรียนผู้ใช้งาน,\n\nรายการพัสดุ: " + itemName + " (รหัส: " + itemId + 
-                          ") ถึงกำหนดส่งคืนในวันนี้ (" + dueDateStr + ") กรุณานำมาคืนที่คลังพัสดุครับ");
+        Logger.log("👉 เงื่อนไขที่ 2 ทำงาน (ส่งเมล์ไปที่: " + email + ")");
+        MailApp.sendEmail(email, "แจ้งเตือน: ครบกำหนดคืนพัสดุ", "ทดสอบเตือนครบกำหนดวันนี้");
       }
-      
-      // เงื่อนไขที่ 3: เกินกำหนดส่งคืน (เลยวันที่กำหนดมาแล้ว)
       else if (dueDate < today) {
-        MailApp.sendEmail(email, "⚠️ แจ้งเตือน: เกินกำหนดคืนพัสดุ", 
-                          "เรียนผู้ใช้งาน,\n\nรายการพัสดุ: " + itemName + " (รหัส: " + itemId + 
-                          ") เกินกำหนดส่งคืนแล้ว! (" + dueDateStr + ") กรุณานำมาคืนโดยด่วนครับ");
+        Logger.log("👉 เงื่อนไขที่ 3 ทำงาน (ส่งเมล์ไปที่: " + email + ")");
+        MailApp.sendEmail(email, "⚠️ แจ้งเตือน: เกินกำหนดคืนพัสดุ", "ทดสอบเตือนเกินกำหนด");
       }
+    } else {
+      Logger.log("ข้ามแถวนี้ (ไม่ได้สถานะ 'กำลังยืม' หรือไม่มี DueDate)");
     }
   }
 }
