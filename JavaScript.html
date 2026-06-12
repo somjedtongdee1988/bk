@@ -553,6 +553,57 @@ function _renderHistoryRows(tbody, adminApprovalTbody, rows, activeRole) {
   }
 }
 
+function checkAndAlertUserDueDates() {
+  if (typeof CURRENT_USER_ROLE === 'undefined' || CURRENT_USER_ROLE !== 'USER') return;
+  
+  // ป้องกันการเด้งซ้ำในวันเดียวกัน
+  const todayStr = new Date().toISOString().split('T')[0];
+  if (sessionStorage.getItem(`user_alert_shown_${todayStr}`)) return;
+
+  const tbody = document.getElementById("user-history-tbody");
+  if (!tbody) return;
+
+  let dueTodayList = [];
+  let overDueList = [];
+
+  // ตรวจสอบคลาสไฮไลต์จากแถวในตาราง
+  const trs = tbody.querySelectorAll("tr");
+  trs.forEach(tr => {
+    if (tr.classList.contains("row-due-today")) {
+      let itemName = tr.children[1]?.innerText.replace('⏰','').trim();
+      if(itemName && !dueTodayList.includes(itemName)) dueTodayList.push(itemName);
+    }
+    if (tr.classList.contains("row-overdue")) {
+      let itemName = tr.children[1]?.innerText.replace('⚠️','').trim();
+      if(itemName && !overDueList.includes(itemName)) overDueList.push(itemName);
+    }
+  });
+
+  if (dueTodayList.length > 0 || overDueList.length > 0) {
+    sessionStorage.setItem(`user_alert_shown_${todayStr}`, 'true');
+
+    if (dueTodayList.length > 0) {
+      Swal.fire({
+        title: '⏰ ถึงกำหนดส่งคืนพัสดุ!',
+        text: `รายการที่ถึงกำหนดส่งคืนในวันนี้: ${dueTodayList.join(', ')}`,
+        icon: 'warning',
+        confirmButtonColor: '#f59e0b'
+      });
+    }
+    
+    if (overDueList.length > 0) {
+      setTimeout(() => {
+        Swal.fire({
+          title: '⚠️ เกินกำหนดส่งคืนพัสดุ!',
+          text: `รายการที่เกินกำหนดส่งคืนแล้ว: ${overDueList.join(', ')}`,
+          icon: 'error',
+          confirmButtonColor: '#ef4444'
+        });
+      }, 500);
+    }
+  }
+}
+
 /* แก้ไข loadUserHistoryData ให้เรนเดอร์ 5 รายการแรก และแสดงปุ่ม "ดูเพิ่มเติมทั้งหมด" เมื่อจำเป็น */
 // ให้ตัวแปรสถานะอยู่ระดับ global ของหน้า
 window.USER_HISTORY_EXPANDED = window.USER_HISTORY_EXPANDED || false;
@@ -607,7 +658,7 @@ function loadUserHistoryData() {
       // แสดงเฉพาะ 5 รายการล่าสุด (initial)
       const initialRows = rows.slice(0, PAGE_SIZE);
       _renderHistoryRows(tbody, adminApprovalTbody, initialRows, activeRole);
-
+      setTimeout(checkAndAlertUserDueDates, 300);
       // เงื่อนไขการแสดงปุ่ม: server แจ้ง hasMore / total > shown / หรือได้ครบหน้า (fallback) / หรือ total === PAGE_SIZE (ให้กดดูทั้งหมดได้)
       const hasMoreFlag = (typeof res.hasMore !== "undefined") ? !!res.hasMore : undefined;
       const totalFromServer = (typeof res.total === "number") ? res.total : null;
