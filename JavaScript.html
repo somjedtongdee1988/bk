@@ -451,11 +451,13 @@ function _renderHistoryRows(tbody, adminApprovalTbody, rows, activeRole) {
 
       if (dueDate.getTime() === today.getTime()) {
         isDueToday = true;
+        // เก็บชื่อรายการไว้เตือนรอบเดียว
         if (!dueTodayList.includes(row.itemName)) {
           dueTodayList.push(row.itemName);
         }
       } else if (dueDate < today) {
         isOverdue = true;
+        // เก็บชื่อรายการไว้เตือนรอบเดียว
         if (!overDueList.includes(row.itemName)) {
           overDueList.push(row.itemName);
         }
@@ -520,26 +522,25 @@ function _renderHistoryRows(tbody, adminApprovalTbody, rows, activeRole) {
     }
   });
 
-  // 👇 ตรวจสอบและเด้งแจ้งเตือนแค่ครั้งเดียวต่อทรานแซกชันในหนึ่งเซสชัน
-    if (activeRole === "USER") {
-      if (isDueToday && !sessionStorage.getItem(`alert_duetoday_${row.transId}`)) {
-        Swal.fire({
-          title: '⏰ ถึงกำหนดส่งคืนพัสดุ!',
-          text: `รายการ ${row.itemName} (รหัส: ${row.itemId}) ถึงกำหนดส่งคืนในวันนี้`,
-          icon: 'warning',
-          confirmButtonColor: '#f59e0b'
-        });
-        sessionStorage.setItem(`alert_duetoday_${row.transId}`, 'true');
-      } else if (isOverdue && !sessionStorage.getItem(`alert_overdue_${row.transId}`)) {
-        Swal.fire({
-          title: '⚠️ เกินกำหนดส่งคืนพัสดุ!',
-          text: `รายการ ${row.itemName} (รหัส: ${row.itemId}) เกินกำหนดส่งคืนแล้ว กรุณานำมาคืนโดยด่วน!`,
-          icon: 'error',
-          confirmButtonColor: '#ef4444'
-        });
-        sessionStorage.setItem(`alert_overdue_${row.transId}`, 'true');
-      }
+  // 👇 เด้งป็อปอัพแจ้งเตือน สรุปแบบรวบยอดแค่ครั้งเดียว (นอกลูป forEach)
+  if (activeRole === "USER") {
+    if (dueTodayList.length > 0) {
+      Swal.fire({
+        title: '⏰ ถึงกำหนดส่งคืนพัสดุ!',
+        text: `มีรายการที่ถึงกำหนดส่งคืนในวันนี้: ${dueTodayList.join(', ')}`,
+        icon: 'warning',
+        confirmButtonColor: '#f59e0b'
+      });
     }
+    if (overDueList.length > 0) {
+      Swal.fire({
+        title: '⚠️ เกินกำหนดส่งคืนพัสดุ!',
+        text: `มีรายการที่เกินกำหนดส่งคืนแล้ว: ${overDueList.join(', ')}`,
+        icon: 'error',
+        confirmButtonColor: '#ef4444'
+      });
+    }
+  }
 
   const approvalBadgeEl = document.getElementById("nav-approval-badge");
   if (approvalBadgeEl) {
