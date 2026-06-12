@@ -443,29 +443,29 @@ function _renderHistoryRows(tbody, adminApprovalTbody, rows, activeRole) {
 
     let isOverdue = false;
     let isDueToday = false;
+    let isDueTomorrow = false; // เพิ่มสถานะก่อนถึงกำหนด 1 วัน
 
     if (row.status === "กำลังยืม") {
       let dParts = row.dueDate.split('/'); 
       let dueDate = new Date(dParts[2], dParts[1] - 1, dParts[0]);
       dueDate.setHours(0, 0, 0, 0);
 
-      if (dueDate.getTime() === today.getTime()) {
+      let tomorrow = new Date(today);
+      tomorrow.setDate(today.getDate() + 1);
+
+      if (dueDate.getTime() === tomorrow.getTime()) {
+        isDueTomorrow = true; // ก่อนกำหนด 1 วัน
+      } else if (dueDate.getTime() === today.getTime()) {
         isDueToday = true;
-        // เก็บชื่อรายการไว้เตือนรอบเดียว
-        if (!dueTodayList.includes(row.itemName)) {
-          dueTodayList.push(row.itemName);
-        }
       } else if (dueDate < today) {
         isOverdue = true;
-        // เก็บชื่อรายการไว้เตือนรอบเดียว
-        if (!overDueList.includes(row.itemName)) {
-          overDueList.push(row.itemName);
-        }
       }
     }
 
     let rowBgClass = "bg-white hover:bg-slate-50";
-    if (isDueToday) {
+    if (isDueTomorrow) {
+      rowBgClass = "bg-slate-200 hover:bg-slate-300/80"; // ➔ พื้นหลังสีเทาอ่อน
+    } else if (isDueToday) {
       rowBgClass = "row-due-today bg-amber-50/40 hover:bg-amber-50/60"; 
     } else if (isOverdue) {
       rowBgClass = "row-overdue bg-red-50/40 hover:bg-red-50/60"; 

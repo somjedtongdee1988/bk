@@ -1347,9 +1347,69 @@ function _resolveBorrowerEmail(txDataRow) {
   return null;
 }
 
+// function checkReturnDueDates() {
+//   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Transactions"); 
+//   var data = sheet.getDataRange().getValues(); 
+  
+//   var today = new Date();
+//   today.setHours(0,0,0,0);
+  
+//   var tomorrow = new Date(today);
+//   tomorrow.setDate(today.getDate() + 1);
+
+//   Logger.log("จำนวนแถวทั้งหมด: " + data.length);
+
+//   for (var i = 1; i < data.length; i++) {
+//     var transId = data[i][0];
+//     var itemId = data[i][1];  
+//     var itemName = data[i][2];
+//     var email = data[i][10];   
+//     var dueDateRaw = data[i][5]; 
+//     var status = data[i][7];  
+
+//     // พิมพ์ค่าออกมาดูใน Log
+//     Logger.log("แถว " + (i+1) + " | ID: " + transId + " | Status: " + status + " | DueDate: " + dueDateRaw + " | Email: " + email);
+
+//     if (status === "กำลังยืม" && dueDateRaw) {
+      
+//       // ตรวจสอบว่าดึงมาเป็น Object Date หรือ String
+//       var dueDate;
+//       if (typeof dueDateRaw === "object") {
+//         dueDate = new Date(dueDateRaw);
+//       } else {
+//         var parts = dueDateRaw.split('/');
+//         dueDate = new Date(parts[2], parts[1] - 1, parts[0]);
+//       }
+      
+//       dueDate.setHours(0,0,0,0);
+//       Logger.log("แปลง Date สำเร็จ ได้วันที่: " + dueDate);
+
+//       if (dueDate.getTime() === tomorrow.getTime()) {
+//         MailApp.sendEmail(email, "แจ้งเตือน: ใกล้ถึงกำหนดคืนพัสดุ", 
+//                           "เรียนผู้ใช้งาน,\n\nรายการพัสดุ: " + itemName + " (รหัส: " + itemId + 
+//                           ") จะถึงกำหนดส่งคืนในวันพรุ่งนี้ (" + dueDateRaw + ") กรุณาเตรียมนำมาคืนครับ");
+//       }
+//       else if (dueDate.getTime() === today.getTime()) {
+//         MailApp.sendEmail(email, "แจ้งเตือน: ครบกำหนดคืนพัสดุ", 
+//                           "เรียนผู้ใช้งาน,\n\nรายการพัสดุ: " + itemName + " (รหัส: " + itemId + 
+//                           ") ถึงกำหนดส่งคืนในวันนี้ (" + dueDateRaw + ") กรุณานำมาคืนที่คลังพัสดุครับ");
+//       }
+//       else if (dueDate < today) {
+//         MailApp.sendEmail(email, "⚠️ แจ้งเตือน: เกินกำหนดคืนพัสดุ", 
+//                           "เรียนผู้ใช้งาน,\n\nรายการพัสดุ: " + itemName + " (รหัส: " + itemId + 
+//                           ") เกินกำหนดส่งคืนแล้ว! (" + dueDateRaw + ") กรุณานำมาคืนโดยด่วนครับ");
+//       }
+//     } else {
+//       Logger.log("ข้ามแถวนี้ (ไม่ได้สถานะ 'กำลังยืม' หรือไม่มี DueDate)");
+//     }
+//   }
+// }
+
 function checkReturnDueDates() {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Transactions"); 
+  if (!sheet) return;
   var data = sheet.getDataRange().getValues(); 
+  if (data.length <= 1) return;
   
   var today = new Date();
   today.setHours(0,0,0,0);
@@ -1357,50 +1417,77 @@ function checkReturnDueDates() {
   var tomorrow = new Date(today);
   tomorrow.setDate(today.getDate() + 1);
 
-  Logger.log("จำนวนแถวทั้งหมด: " + data.length);
+  // จัดกลุ่มรายการตามเลขธุรกรรม (transID)
+  var groups = {};
 
   for (var i = 1; i < data.length; i++) {
     var transId = data[i][0];
     var itemId = data[i][1];  
-    var itemName = data[i][2];
+    var itemName = data[i][8]; // คอลัมน์ I (ชื่อพัสดุ/วัตถุประสงค์)
+    var borrowerName = data[i][2];
     var email = data[i][10];   
     var dueDateRaw = data[i][5]; 
     var status = data[i][7];  
 
-    // พิมพ์ค่าออกมาดูใน Log
-    Logger.log("แถว " + (i+1) + " | ID: " + transId + " | Status: " + status + " | DueDate: " + dueDateRaw + " | Email: " + email);
-
     if (status === "กำลังยืม" && dueDateRaw) {
-      
-      // ตรวจสอบว่าดึงมาเป็น Object Date หรือ String
-      var dueDate;
-      if (typeof dueDateRaw === "object") {
-        dueDate = new Date(dueDateRaw);
-      } else {
-        var parts = dueDateRaw.split('/');
-        dueDate = new Date(parts[2], parts[1] - 1, parts[0]);
-      }
-      
+      var dueDate = new Date(dueDateRaw);
       dueDate.setHours(0,0,0,0);
-      Logger.log("แปลง Date สำเร็จ ได้วันที่: " + dueDate);
 
+      var type = "";
       if (dueDate.getTime() === tomorrow.getTime()) {
-        MailApp.sendEmail(email, "แจ้งเตือน: ใกล้ถึงกำหนดคืนพัสดุ", 
-                          "เรียนผู้ใช้งาน,\n\nรายการพัสดุ: " + itemName + " (รหัส: " + itemId + 
-                          ") จะถึงกำหนดส่งคืนในวันพรุ่งนี้ (" + dueDateRaw + ") กรุณาเตรียมนำมาคืนครับ");
+        type = "TOMORROW";
+      } else if (dueDate.getTime() === today.getTime()) {
+        type = "TODAY";
+      } else if (dueDate < today) {
+        type = "OVERDUE";
       }
-      else if (dueDate.getTime() === today.getTime()) {
-        MailApp.sendEmail(email, "แจ้งเตือน: ครบกำหนดคืนพัสดุ", 
-                          "เรียนผู้ใช้งาน,\n\nรายการพัสดุ: " + itemName + " (รหัส: " + itemId + 
-                          ") ถึงกำหนดส่งคืนในวันนี้ (" + dueDateRaw + ") กรุณานำมาคืนที่คลังพัสดุครับ");
+
+      if (type) {
+        if (!groups[transId]) {
+          groups[transId] = {
+            email: email,
+            borrower: borrowerName,
+            dueDateStr: Utilities.formatDate(dueDate, "Asia/Bangkok", "dd/MM/yyyy"),
+            items: [],
+            type: type
+          };
+        }
+        groups[transId].items.push({ itemId: itemId, itemName: itemName });
       }
-      else if (dueDate < today) {
-        MailApp.sendEmail(email, "⚠️ แจ้งเตือน: เกินกำหนดคืนพัสดุ", 
-                          "เรียนผู้ใช้งาน,\n\nรายการพัสดุ: " + itemName + " (รหัส: " + itemId + 
-                          ") เกินกำหนดส่งคืนแล้ว! (" + dueDateRaw + ") กรุณานำมาคืนโดยด่วนครับ");
-      }
+    }
+  }
+
+  // ส่งอีเมลสรุปผลตามกลุ่ม
+  for (var txId in groups) {
+    var g = groups[txId];
+    var subject = "";
+    var body = "เรียนคุณ " + g.borrower + "\n\n";
+
+    if (g.type === "TOMORROW") {
+      subject = "แจ้งเตือน: ใกล้ถึงกำหนดคืนพัสดุ (เลขธุรกรรม: " + txId + ")";
+      body += "รายการยืมของคุณจะถึงกำหนดส่งคืนในวันพรุ่งนี้ (" + g.dueDateStr + ") ประกอบด้วยรายการดังนี้:\n";
+    } else if (g.type === "TODAY") {
+      subject = "แจ้งเตือน: ครบกำหนดคืนพัสดุ (เลขธุรกรรม: " + txId + ")";
+      body += "รายการยืมของคุณถึงกำหนดส่งคืนในวันนี้ (" + g.dueDateStr + ") ประกอบด้วยรายการดังนี้:\n";
+    } else if (g.type === "OVERDUE") {
+      subject = "⚠️ แจ้งเตือน: เกินกำหนดคืนพัสดุ (เลขธุรกรรม: " + txId + ")";
+      body += "รายการยืมของคุณเกินกำหนดส่งคืนแล้ว! (" + g.dueDateStr + ") ประกอบด้วยรายการดังนี้:\n";
+    }
+
+    for (var j = 0; j < g.items.length; j++) {
+      body += "• รหัส: " + g.items[j].itemId + " | พัสดุ: " + g.items[j].itemName + "\n";
+    }
+
+    if (g.type === "OVERDUE") {
+      body += "\nกรุณานำมาคืนที่คลังพัสดุโดยด่วนครับ/ค่ะ";
     } else {
-      Logger.log("ข้ามแถวนี้ (ไม่ได้สถานะ 'กำลังยืม' หรือไม่มี DueDate)");
+      body += "\nกรุณานำมาคืนตามกำหนดเวลาครับ/ค่ะ";
+    }
+
+    body += "\n\nระบบ CPE Smart Asset Management";
+
+    if (g.email && g.email.indexOf('@') !== -1) {
+      MailApp.sendEmail(g.email, subject, body);
     }
   }
 }
