@@ -1440,17 +1440,17 @@ function checkReturnDueDates() {
       if (dueDate.getTime() === tomorrow.getTime()) {
         MailApp.sendEmail(email, "แจ้งเตือน: ใกล้ถึงกำหนดคืนพัสดุ", 
                           "เรียนผู้ใช้งาน,\n\nรายการพัสดุ: " + itemName + " (รหัส: " + itemId + 
-                          ") จะถึงกำหนดส่งคืนในวันพรุ่งนี้ (" + dueDateStr + ") กรุณาเตรียมนำมาคืนครับ");
+                          ") จะถึงกำหนดส่งคืนในวันพรุ่งนี้ (" + dueDateRaw + ") กรุณาเตรียมนำมาคืนครับ");
       }
       else if (dueDate.getTime() === today.getTime()) {
         MailApp.sendEmail(email, "แจ้งเตือน: ครบกำหนดคืนพัสดุ", 
                           "เรียนผู้ใช้งาน,\n\nรายการพัสดุ: " + itemName + " (รหัส: " + itemId + 
-                          ") ถึงกำหนดส่งคืนในวันนี้ (" + dueDateStr + ") กรุณานำมาคืนที่คลังพัสดุครับ");
+                          ") ถึงกำหนดส่งคืนในวันนี้ (" + dueDateRaw + ") กรุณานำมาคืนที่คลังพัสดุครับ");
       }
       else if (dueDate < today) {
         MailApp.sendEmail(email, "⚠️ แจ้งเตือน: เกินกำหนดคืนพัสดุ", 
                           "เรียนผู้ใช้งาน,\n\nรายการพัสดุ: " + itemName + " (รหัส: " + itemId + 
-                          ") เกินกำหนดส่งคืนแล้ว! (" + dueDateStr + ") กรุณานำมาคืนโดยด่วนครับ");
+                          ") เกินกำหนดส่งคืนแล้ว! (" + dueDateRaw + ") กรุณานำมาคืนโดยด่วนครับ");
       }
     } else {
       Logger.log("ข้ามแถวนี้ (ไม่ได้สถานะ 'กำลังยืม' หรือไม่มี DueDate)");
